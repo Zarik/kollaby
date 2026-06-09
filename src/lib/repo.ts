@@ -430,3 +430,85 @@ export function setProposalStatus(
     .run(status, id, toTeamId);
   return info.changes > 0;
 }
+
+// ─── Дашборд: агрегированная статистика (без персональных данных) ─────────────
+
+export interface DashboardStats {
+  teams: number;
+  plans: number;
+  teamsWithPlans: number;
+  citiesCovered: number;
+  daysCovered: number;
+  matchPairs: number; // уникальные пары команд, чьи планы пересеклись (город+дата)
+  proposalsTotal: number;
+  proposalsAccepted: number;
+  proposalsDeclined: number;
+  proposalsPending: number;
+  presenceActive: number; // команд отмечено «Я здесь» прямо сейчас
+  byCity: { city: string; plans: number; teams: number }[];
+  byPart: Record<string, number>; // part_of_day → число заявок
+  presenceByCity: { city: string; teams: number }[];
+}
+
+function scalar(sql: string, ...params: unknown[]): number {
+  const row = db.prepare(sql).get(...params) as { n: number } | undefined;
+  return row?.n ?? 0;
+}
+
+/**
+ * Сводная статистика для /dashboard. Только обезличенные агрегаты —
+ * ни названий, ни номеров, ни контактов команд.
+ */
+export function getDashboardStats(): DashboardStats {
+  cleanupExpiredPresence();
+  const now = nowISO();
+
+  const byStatus = db
+    .prepare(`SELECT status, COUNT(*) AS n FROM collab_proposals GROUP BY status`)
+    .all() as { status: string; n: number }[];
+  const statusCount = (s: string) =>
+    byStatus.find((r) => r.status === s)?.n ?? 0;
+
+  const byCity = db
+    .prepare(
+      `SELECT city, COUNT(*) AS plans, COUNT(DISTINCT team_id) AS teams
+       FROM plans GROUP BY city ORDER BY plans DESC, city`,
+    )
+    .all() as { city: string; plans: number; teams: number }[];
+
+  const byPartRows = db
+    .prepare(`SELECT part_of_day AS part, COUNT(*) AS n FROM plans GROUP BY part_of_day`)
+    .all() as { part: string; n: number }[];
+  const byPart: Record<string, number> = {};
+  for (const r of byPartRows) byPart[r.part] = r.n;
+
+  const presenceByCity = db
+    .prepare(
+      `SELECT city, COUNT(*) AS teams FROM presence WHERE expires_at > ?
+       GROUP BY city ORDER BY teams DESC, city`,
+    )
+    .all(now) as { city: string; teams: number }[];
+
+  return {
+    teams: scalar(`SELECT COUNT(*) AS n FROM teams`),
+    plans: scalar(`SELECT COUNT(*) AS n FROM plans`),
+    teamsWithPlans: scalar(`SELECT COUNT(DISTINCT team_id) AS n FROM plans`),
+    citiesCovered: scalar(`SELECT COUNT(DISTINCT city) AS n FROM plans`),
+    daysCovered: scalar(`SELECT COUNT(DISTINCT visit_date) AS n FROM plans`),
+    matchPairs: scalar(
+      `SELECT COUNT(*) AS n FROM (
+         SELECT DISTINCT a.team_id AS t1, b.team_id AS t2
+         FROM plans a JOIN plans b
+           ON a.city = b.city AND a.visit_date = b.visit_date AND a.team_id < b.team_id
+       )`,
+    ),
+    proposalsTotal: byStatus.reduce((s, r) => s + r.n, 0),
+    proposalsAccepted: statusCount("accepted"),
+    proposalsDeclined: statusCount("declined"),
+    proposalsPending: statusCount("proposed"),
+    presenceActive: scalar(`SELECT COUNT(*) AS n FROM presence WHERE expires_at > ?`, now),
+    byCity,
+    byPart,
+    presenceByCity,
+  };
+}
