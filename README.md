@@ -1,36 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Коллабы · Главный ход
 
-## Getting Started
+Сервис координации команд городской игры **«Главный ход»** (формат «Бегущий город»).
+Сезон — лето (10 июня – 31 августа), 8 городов. Помогает командам находить друг друга
+для **коллабораций** (совместное фото в пределах одного города).
 
-First, run the development server:
+## Два режима
+- **Планирование** — команда заявляет «город + дата + время суток»; сервис показывает
+  пересечения с другими командами (лента «Возможности») и календарь по городу. По матчу
+  можно **предложить коллаборацию** — адресату уходит email.
+- **Кто здесь сейчас** — кнопки «Я здесь» / «Мы уехали»; доска присутствия по городам.
+  Статус «Я здесь» живёт до конца дня. Контакты команды раскрываются по клику (при согласии).
 
+## Стек
+Next.js 16 (App Router) · TypeScript · better-sqlite3 · jose (JWT) · bcryptjs · nodemailer · Tailwind v4.
+
+## Запуск
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env.local   # заполнить JWT_SECRET (см. ниже), при желании SMTP
+npm run dev                  # http://localhost:3000
+```
+Сгенерировать `JWT_SECRET`:
+```bash
+node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Переменные окружения
+| Переменная | Назначение |
+|------------|-----------|
+| `JWT_SECRET` | Секрет подписи JWT (обязательно) |
+| `DB_PATH` | Путь к SQLite (по умолчанию `./data/kollaby.db`) |
+| `SMTP_HOST/PORT/SECURE/USER/PASS/FROM` | SMTP для писем. Без них письма логируются в консоль |
+| `APP_URL` | Публичный адрес для ссылок в письмах |
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Структура
+- `src/config/game.ts` — города, сезон, времена суток (единый источник правды).
+- `src/lib/` — `db.ts` (схема), `repo.ts` (запросы), `auth.ts`, `session.ts`, `rate-limit.ts`, `mail.ts`.
+- `src/proxy.ts` — middleware (защита страниц; в Next 16 middleware называется proxy).
+- `src/app/api/*` — route handlers (auth, plans, matches, calendar, presence, now, proposals, team).
+- `src/app/(app)/*` — защищённые страницы (plan, now, team); `src/app/page.tsx` — вход/регистрация.
+- `src/components/*` — клиентские компоненты UI.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Авторизация
+Логин — **номер команды + пароль** (одна учётка на команду). Название команды —
+отдельный отображаемый атрибут. Регистрация требует согласия на показ контактов.
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Не в MVP (на потом)
+Telegram-бот, push/Telegram-уведомления, карта городов, матчинг с допуском по датам.

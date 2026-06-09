@@ -1,0 +1,51 @@
+import { NextRequest, NextResponse } from "next/server";
+import { requireTeam } from "@/lib/session";
+import { createPlan, getPlansByTeam } from "@/lib/repo";
+import { isCity, isPartOfDay, SEASON } from "@/config/game";
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function isValidVisitDate(date: string): boolean {
+  if (!DATE_RE.test(date)) return false;
+  // реальная дата (не 2026-02-31) + в пределах сезона
+  const d = new Date(date + "T00:00:00Z");
+  if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== date) {
+    return false;
+  }
+  return date >= SEASON.start && date <= SEASON.end;
+}
+
+export async function GET(request: NextRequest) {
+  const auth = await requireTeam(request);
+  if (!auth.ok) return auth.response;
+  return NextResponse.json({ plans: getPlansByTeam(auth.teamId) });
+}
+
+export async function POST(request: NextRequest) {
+  const auth = await requireTeam(request);
+  if (!auth.ok) return auth.response;
+
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Неверный формат запроса" }, { status: 400 });
+  }
+
+  const city = String(body.city ?? "");
+  const visitDate = String(body.visitDate ?? "");
+  const partOfDay = String(body.partOfDay ?? "");
+  const note = body.note != null ? String(body.note).trim() || null : null;
+
+  if (!isCity(city)) return NextResponse.json({ error: "Неизвестный город" }, { status: 400 });
+  if (!isValidVisitDate(visitDate))
+    return NextResponse.json(
+      { error: `Дата вне сезона (${SEASON.start} — ${SEASON.end})` },
+      { status: 400 },
+    );
+  if (!isPartOfDay(partOfDay))
+    return NextResponse.json({ error: "Укажите время суток" }, { status: 400 });
+
+  const plan = createPlan({ teamId: auth.teamId, city, visitDate, partOfDay, note });
+  return NextResponse.json({ plan }, { status: 201 });
+}

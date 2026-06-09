@@ -1,0 +1,432 @@
+import { db } from "./db";
+import { nowISO } from "./time";
+
+/** Слой доступа к данным: команды, заявки, присутствие, предложения коллабораций. */
+
+// ─── Типы строк БД ──────────────────────────────────────────────────────────
+
+export interface Team {
+  id: number;
+  number: string;
+  name: string;
+  password_hash: string;
+  email: string;
+  phone: string;
+  telegram: string | null; // username без @
+  max_link: string | null; // полная ссылка max.ru
+  contacts_consent: number; // 0 | 1
+  created_at: string;
+}
+
+export interface Plan {
+  id: number;
+  team_id: number;
+  city: string;
+  visit_date: string;
+  part_of_day: string;
+  note: string | null;
+  created_at: string;
+}
+
+export interface Proposal {
+  id: number;
+  from_team_id: number;
+  to_team_id: number;
+  city: string;
+  visit_date: string;
+  part_of_day: string | null;
+  message: string | null;
+  status: "proposed" | "accepted" | "declined";
+  created_at: string;
+}
+
+/** Публичная карточка команды (без хеша пароля). Контакты — только при согласии. */
+export interface PublicTeam {
+  id: number;
+  number: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  telegram: string | null;
+  maxLink: string | null;
+  contactsShared: boolean;
+}
+
+export function toPublicTeam(t: Team): PublicTeam {
+  const shared = t.contacts_consent === 1;
+  return {
+    id: t.id,
+    number: t.number,
+    name: t.name,
+    email: shared ? t.email : null,
+    phone: shared ? t.phone : null,
+    telegram: shared ? t.telegram : null,
+    maxLink: shared ? t.max_link : null,
+    contactsShared: shared,
+  };
+}
+
+// ─── Команды ────────────────────────────────────────────────────────────────
+
+export function getTeamByNumber(number: string): Team | undefined {
+  return db
+    .prepare("SELECT * FROM teams WHERE number = ?")
+    .get(number) as Team | undefined;
+}
+
+export function getTeamById(id: number): Team | undefined {
+  return db.prepare("SELECT * FROM teams WHERE id = ?").get(id) as
+    | Team
+    | undefined;
+}
+
+export function createTeam(input: {
+  number: string;
+  name: string;
+  passwordHash: string;
+  email: string;
+  phone: string;
+  telegram?: string | null;
+  maxLink?: string | null;
+  consent: boolean;
+}): Team {
+  const info = db
+    .prepare(
+      `INSERT INTO teams (number, name, password_hash, email, phone, telegram, max_link, contacts_consent, created_at)
+       VALUES (@number, @name, @passwordHash, @email, @phone, @telegram, @maxLink, @consent, @createdAt)`,
+    )
+    .run({
+      number: input.number,
+      name: input.name,
+      passwordHash: input.passwordHash,
+      email: input.email,
+      phone: input.phone,
+      telegram: input.telegram ?? null,
+      maxLink: input.maxLink ?? null,
+      consent: input.consent ? 1 : 0,
+      createdAt: nowISO(),
+    });
+  return getTeamById(Number(info.lastInsertRowid))!;
+}
+
+export function updateTeamProfile(
+  id: number,
+  input: {
+    name: string;
+    email: string;
+    phone: string;
+    telegram?: string | null;
+    maxLink?: string | null;
+    consent: boolean;
+  },
+): void {
+  db.prepare(
+    `UPDATE teams SET name = @name, email = @email, phone = @phone,
+       telegram = @telegram, max_link = @maxLink, contacts_consent = @consent
+     WHERE id = @id`,
+  ).run({
+    id,
+    name: input.name,
+    email: input.email,
+    phone: input.phone,
+    telegram: input.telegram ?? null,
+    maxLink: input.maxLink ?? null,
+    consent: input.consent ? 1 : 0,
+  });
+}
+
+export function updateTeamPassword(id: number, passwordHash: string): void {
+  db.prepare("UPDATE teams SET password_hash = ? WHERE id = ?").run(
+    passwordHash,
+    id,
+  );
+}
+
+// ─── Заявки (планы) ───────────────────────────────────────────────────────────
+
+export function createPlan(input: {
+  teamId: number;
+  city: string;
+  visitDate: string;
+  partOfDay: string;
+  note?: string | null;
+}): Plan {
+  const info = db
+    .prepare(
+      `INSERT INTO plans (team_id, city, visit_date, part_of_day, note, created_at)
+       VALUES (@teamId, @city, @visitDate, @partOfDay, @note, @createdAt)`,
+    )
+    .run({
+      teamId: input.teamId,
+      city: input.city,
+      visitDate: input.visitDate,
+      partOfDay: input.partOfDay,
+      note: input.note ?? null,
+      createdAt: nowISO(),
+    });
+  return db
+    .prepare("SELECT * FROM plans WHERE id = ?")
+    .get(Number(info.lastInsertRowid)) as Plan;
+}
+
+export function getPlansByTeam(teamId: number): Plan[] {
+  return db
+    .prepare(
+      "SELECT * FROM plans WHERE team_id = ? ORDER BY visit_date, city",
+    )
+    .all(teamId) as Plan[];
+}
+
+/** Есть ли у команды заявка в этом городе на эту дату. */
+export function hasPlan(teamId: number, city: string, visitDate: string): boolean {
+  const row = db
+    .prepare(
+      "SELECT 1 FROM plans WHERE team_id = ? AND city = ? AND visit_date = ? LIMIT 1",
+    )
+    .get(teamId, city, visitDate);
+  return row !== undefined;
+}
+
+/** Удаляет заявку, только если она принадлежит команде. Возвращает true при удалении. */
+export function deletePlan(id: number, teamId: number): boolean {
+  const info = db
+    .prepare("DELETE FROM plans WHERE id = ? AND team_id = ?")
+    .run(id, teamId);
+  return info.changes > 0;
+}
+
+export interface CalendarEntry {
+  plan_id: number;
+  visit_date: string;
+  part_of_day: string;
+  team_id: number;
+  number: string;
+  name: string;
+}
+
+/** Заявки по городу за период (для календаря). */
+export function getCityCalendar(
+  city: string,
+  from: string,
+  to: string,
+): CalendarEntry[] {
+  return db
+    .prepare(
+      `SELECT p.id AS plan_id, p.visit_date, p.part_of_day,
+              t.id AS team_id, t.number, t.name
+       FROM plans p
+       JOIN teams t ON t.id = p.team_id
+       WHERE p.city = ? AND p.visit_date BETWEEN ? AND ?
+       ORDER BY p.visit_date, t.number`,
+    )
+    .all(city, from, to) as CalendarEntry[];
+}
+
+// ─── Матчинг планов ───────────────────────────────────────────────────────────
+
+export interface MatchRow {
+  my_plan_id: number;
+  city: string;
+  visit_date: string;
+  my_part: string;
+  other_plan_id: number;
+  other_part: string;
+  other_team_id: number;
+  other_number: string;
+  other_name: string;
+}
+
+/** Все пересечения планов команды с чужими (тот же город + дата). */
+export function getMatchesForTeam(teamId: number): MatchRow[] {
+  return db
+    .prepare(
+      `SELECT myp.id AS my_plan_id, myp.city, myp.visit_date, myp.part_of_day AS my_part,
+              op.id AS other_plan_id, op.part_of_day AS other_part,
+              t.id AS other_team_id, t.number AS other_number, t.name AS other_name
+       FROM plans myp
+       JOIN plans op
+         ON op.city = myp.city
+        AND op.visit_date = myp.visit_date
+        AND op.team_id != myp.team_id
+       JOIN teams t ON t.id = op.team_id
+       WHERE myp.team_id = ?
+       ORDER BY myp.visit_date, myp.city, t.number`,
+    )
+    .all(teamId) as MatchRow[];
+}
+
+// ─── Присутствие «Я здесь» ────────────────────────────────────────────────────
+
+export function checkIn(teamId: number, city: string, expiresAt: string): void {
+  db.prepare(
+    `INSERT INTO presence (team_id, city, checked_in_at, expires_at)
+     VALUES (@teamId, @city, @now, @expiresAt)
+     ON CONFLICT(team_id) DO UPDATE SET
+       city = excluded.city,
+       checked_in_at = excluded.checked_in_at,
+       expires_at = excluded.expires_at`,
+  ).run({ teamId, city, now: nowISO(), expiresAt });
+}
+
+export function checkOut(teamId: number): void {
+  db.prepare("DELETE FROM presence WHERE team_id = ?").run(teamId);
+}
+
+/** Чистка протухшего присутствия (ленивая, при чтении). */
+export function cleanupExpiredPresence(): void {
+  db.prepare("DELETE FROM presence WHERE expires_at <= ?").run(nowISO());
+}
+
+export interface PresenceRow {
+  city: string;
+  checked_in_at: string;
+  team_id: number;
+  number: string;
+  name: string;
+  email: string;
+  phone: string;
+  telegram: string | null;
+  max_link: string | null;
+  contacts_consent: number;
+}
+
+/** Активное присутствие (с предварительной чисткой протухшего). */
+export function getActivePresence(): PresenceRow[] {
+  cleanupExpiredPresence();
+  return db
+    .prepare(
+      `SELECT pr.city, pr.checked_in_at,
+              t.id AS team_id, t.number, t.name, t.email, t.phone,
+              t.telegram, t.max_link, t.contacts_consent
+       FROM presence pr
+       JOIN teams t ON t.id = pr.team_id
+       WHERE pr.expires_at > ?
+       ORDER BY pr.city, pr.checked_in_at DESC`,
+    )
+    .all(nowISO()) as PresenceRow[];
+}
+
+/** Текущее присутствие команды (или undefined). */
+export function getMyPresence(
+  teamId: number,
+): { city: string; expires_at: string } | undefined {
+  cleanupExpiredPresence();
+  return db
+    .prepare(
+      "SELECT city, expires_at FROM presence WHERE team_id = ? AND expires_at > ?",
+    )
+    .get(teamId, nowISO()) as { city: string; expires_at: string } | undefined;
+}
+
+// ─── Предложения коллабораций ─────────────────────────────────────────────────
+
+export function createProposal(input: {
+  fromTeamId: number;
+  toTeamId: number;
+  city: string;
+  visitDate: string;
+  partOfDay?: string | null;
+  message?: string | null;
+}): Proposal {
+  const info = db
+    .prepare(
+      `INSERT INTO collab_proposals
+         (from_team_id, to_team_id, city, visit_date, part_of_day, message, status, created_at)
+       VALUES (@fromTeamId, @toTeamId, @city, @visitDate, @partOfDay, @message, 'proposed', @createdAt)`,
+    )
+    .run({
+      fromTeamId: input.fromTeamId,
+      toTeamId: input.toTeamId,
+      city: input.city,
+      visitDate: input.visitDate,
+      partOfDay: input.partOfDay ?? null,
+      message: input.message ?? null,
+      createdAt: nowISO(),
+    });
+  return db
+    .prepare("SELECT * FROM collab_proposals WHERE id = ?")
+    .get(Number(info.lastInsertRowid)) as Proposal;
+}
+
+/** Не дублировать активное предложение тому же адресату на тот же слот. */
+export function findOpenProposal(
+  fromTeamId: number,
+  toTeamId: number,
+  city: string,
+  visitDate: string,
+): Proposal | undefined {
+  return db
+    .prepare(
+      `SELECT * FROM collab_proposals
+       WHERE from_team_id = ? AND to_team_id = ? AND city = ? AND visit_date = ?
+         AND status = 'proposed'`,
+    )
+    .get(fromTeamId, toTeamId, city, visitDate) as Proposal | undefined;
+}
+
+export interface ProposalView {
+  id: number;
+  city: string;
+  visit_date: string;
+  part_of_day: string | null;
+  message: string | null;
+  status: string;
+  created_at: string;
+  team_id: number;
+  number: string;
+  name: string;
+  email: string;
+  phone: string;
+  telegram: string | null;
+  max_link: string | null;
+  contacts_consent: number;
+}
+
+/** Входящие предложения для команды (с данными отправителя). */
+export function getIncomingProposals(teamId: number): ProposalView[] {
+  return db
+    .prepare(
+      `SELECT cp.id, cp.city, cp.visit_date, cp.part_of_day, cp.message, cp.status, cp.created_at,
+              t.id AS team_id, t.number, t.name, t.email, t.phone, t.telegram, t.max_link, t.contacts_consent
+       FROM collab_proposals cp
+       JOIN teams t ON t.id = cp.from_team_id
+       WHERE cp.to_team_id = ?
+       ORDER BY cp.created_at DESC`,
+    )
+    .all(teamId) as ProposalView[];
+}
+
+/** Исходящие предложения команды (с данными адресата). */
+export function getOutgoingProposals(teamId: number): ProposalView[] {
+  return db
+    .prepare(
+      `SELECT cp.id, cp.city, cp.visit_date, cp.part_of_day, cp.message, cp.status, cp.created_at,
+              t.id AS team_id, t.number, t.name, t.email, t.phone, t.telegram, t.max_link, t.contacts_consent
+       FROM collab_proposals cp
+       JOIN teams t ON t.id = cp.to_team_id
+       WHERE cp.from_team_id = ?
+       ORDER BY cp.created_at DESC`,
+    )
+    .all(teamId) as ProposalView[];
+}
+
+export function getProposalById(id: number): Proposal | undefined {
+  return db
+    .prepare("SELECT * FROM collab_proposals WHERE id = ?")
+    .get(id) as Proposal | undefined;
+}
+
+/** Сменить статус предложения, только если команда — адресат. Возвращает true при изменении. */
+export function setProposalStatus(
+  id: number,
+  toTeamId: number,
+  status: "accepted" | "declined",
+): boolean {
+  const info = db
+    .prepare(
+      `UPDATE collab_proposals SET status = ?
+       WHERE id = ? AND to_team_id = ? AND status = 'proposed'`,
+    )
+    .run(status, id, toTeamId);
+  return info.changes > 0;
+}
