@@ -4,6 +4,7 @@ import { signToken, buildAuthCookie } from "@/lib/auth";
 import { createTeam, getTeamByNumber } from "@/lib/repo";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { normalizeTelegram, normalizeMax } from "@/lib/contacts";
+import { sendWelcomeEmail } from "@/lib/mail";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -66,6 +67,18 @@ export async function POST(request: NextRequest) {
     maxLink,
     consent,
   });
+
+  // Письмо-подтверждение с реквизитами. Не валим регистрацию, если SMTP сбоит.
+  try {
+    await sendWelcomeEmail({
+      toEmail: email,
+      number: team.number,
+      name: team.name,
+      password,
+    });
+  } catch (err) {
+    console.error("[register] не удалось отправить письмо-подтверждение:", err);
+  }
 
   const token = await signToken({ sub: String(team.id), number: team.number, name: team.name });
   const isSecure = request.nextUrl.protocol === "https:";

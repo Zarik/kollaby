@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { jsonFetch } from "@/lib/client";
+import PasswordInput from "@/components/PasswordInput";
 
 type Mode = "login" | "register";
 
@@ -23,6 +24,7 @@ export default function AuthForm() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
   const [telegram, setTelegram] = useState("");
   const [maxLink, setMaxLink] = useState("");
   const [consent, setConsent] = useState(false);
@@ -36,6 +38,10 @@ export default function AuthForm() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError("");
+    if (mode === "register" && password !== passwordConfirm) {
+      setError("Пароли не совпадают");
+      return;
+    }
     setLoading(true);
     try {
       if (mode === "login") {
@@ -168,15 +174,29 @@ export default function AuthForm() {
 
         <div>
           <label className="mb-1 block text-sm font-medium text-stone-700">Пароль</label>
-          <input
-            type="password"
-            className={inputClass}
+          <PasswordInput
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={setPassword}
             placeholder={mode === "register" ? "не короче 6 символов" : ""}
             required
+            autoComplete={mode === "register" ? "new-password" : "current-password"}
           />
         </div>
+
+        {mode === "register" && (
+          <div>
+            <label className="mb-1 block text-sm font-medium text-stone-700">
+              Повторите пароль
+            </label>
+            <PasswordInput
+              value={passwordConfirm}
+              onChange={setPasswordConfirm}
+              placeholder="ещё раз тот же пароль"
+              required
+              autoComplete="new-password"
+            />
+          </div>
+        )}
 
         {mode === "register" && (
           <div className="space-y-2 pt-1">

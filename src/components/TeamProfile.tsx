@@ -3,6 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { jsonFetch } from "@/lib/client";
 import TeamPhoto from "@/components/TeamPhoto";
+import PasswordInput from "@/components/PasswordInput";
 
 interface TeamData {
   number: string;
@@ -16,6 +17,7 @@ interface TeamData {
 
 const inputClass =
   "w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20";
+const passwordClass = `${inputClass} pr-10`;
 const card = "rounded-2xl border border-stone-200 bg-white p-5 shadow-sm";
 
 export default function TeamProfile() {
@@ -29,6 +31,7 @@ export default function TeamProfile() {
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [newPasswordConfirm, setNewPasswordConfirm] = useState("");
 
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -54,6 +57,10 @@ export default function TeamProfile() {
     e.preventDefault();
     setError("");
     setOk("");
+    if (newPassword && newPassword !== newPasswordConfirm) {
+      setError("Новые пароли не совпадают");
+      return;
+    }
     setSaving(true);
     try {
       await jsonFetch("/api/team", {
@@ -71,6 +78,7 @@ export default function TeamProfile() {
       });
       setCurrentPassword("");
       setNewPassword("");
+      setNewPasswordConfirm("");
       setOk("Сохранено.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ошибка");
@@ -163,22 +171,32 @@ export default function TeamProfile() {
         <div className="space-y-3">
           <div>
             <label className="mb-1 block text-sm font-medium text-stone-700">Текущий пароль</label>
-            <input
-              type="password"
-              className={inputClass}
+            <PasswordInput
+              className={passwordClass}
               value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
+              onChange={setCurrentPassword}
               autoComplete="current-password"
             />
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-stone-700">Новый пароль</label>
-            <input
-              type="password"
-              className={inputClass}
+            <PasswordInput
+              className={passwordClass}
               value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
+              onChange={setNewPassword}
               placeholder="не короче 6 символов"
+              autoComplete="new-password"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-stone-700">
+              Повторите новый пароль
+            </label>
+            <PasswordInput
+              className={passwordClass}
+              value={newPasswordConfirm}
+              onChange={setNewPasswordConfirm}
+              placeholder="ещё раз новый пароль"
               autoComplete="new-password"
             />
           </div>

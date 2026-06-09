@@ -127,3 +127,63 @@ export async function sendProposalEmail(input: ProposalEmailInput): Promise<void
     html,
   });
 }
+
+export interface WelcomeEmailInput {
+  toEmail: string;
+  number: string;
+  name: string;
+  password: string;
+}
+
+/** Письмо-подтверждение регистрации: реквизиты для входа (номер + пароль). */
+export async function sendWelcomeEmail(input: WelcomeEmailInput): Promise<void> {
+  const subject = `«${SERVICE_NAME}»: регистрация команды №${input.number}`;
+  const appUrl = process.env.APP_URL ?? "";
+
+  const text = [
+    `Здравствуйте, команда «${input.name}»!`,
+    "",
+    `Вы зарегистрировались в сервисе «${SERVICE_NAME}» для игры «${GAME_NAME}».`,
+    "",
+    "Реквизиты для входа:",
+    `Номер команды (логин): ${input.number}`,
+    `Пароль: ${input.password}`,
+    "",
+    "Сохраните это письмо. Пароль можно сменить в профиле команды.",
+    appUrl ? `\nВойти: ${appUrl}` : "",
+    "",
+    `— ${SERVICE_NAME}`,
+  ]
+    .filter((l) => l !== "")
+    .join("\n");
+
+  const esc = (s: string) =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  const html = `
+    <p>Здравствуйте, команда «${esc(input.name)}»!</p>
+    <p>Вы зарегистрировались в сервисе «${SERVICE_NAME}» для игры «${GAME_NAME}».</p>
+    <p><b>Реквизиты для входа:</b><br>
+      Номер команды (логин): <b>${esc(input.number)}</b><br>
+      Пароль: <b>${esc(input.password)}</b></p>
+    <p>Сохраните это письмо. Пароль можно сменить в профиле команды.</p>
+    ${appUrl ? `<p><a href="${appUrl}">Войти в сервис</a></p>` : ""}
+    <p>— ${SERVICE_NAME}</p>
+  `.trim();
+
+  const transporter = getTransporter();
+  if (!transporter) {
+    console.info(
+      `[mail] SMTP не настроен — письмо не отправлено.\nКому: ${input.toEmail}\nТема: ${subject}\n\n${text}`,
+    );
+    return;
+  }
+
+  await transporter.sendMail({
+    from: fromAddress(),
+    to: input.toEmail,
+    subject,
+    text,
+    html,
+  });
+}

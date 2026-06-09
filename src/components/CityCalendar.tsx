@@ -11,7 +11,7 @@ import {
   isAfter,
   isBefore,
 } from "date-fns";
-import { CITIES, SEASON, partOfDayLabel, type PartOfDay } from "@/config/game";
+import { CITIES, PARTS_OF_DAY, SEASON, type PartOfDay } from "@/config/game";
 import { jsonFetch } from "@/lib/client";
 
 interface CalendarEntry {
@@ -23,6 +23,17 @@ interface CalendarEntry {
 }
 
 const WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+
+/** Цвет чипсы по времени суток. */
+const PART_CHIP: Record<PartOfDay, string> = {
+  morning: "bg-amber-100 text-amber-800 hover:bg-amber-200",
+  day: "bg-sky-100 text-sky-800 hover:bg-sky-200",
+  evening: "bg-violet-100 text-violet-800 hover:bg-violet-200",
+};
+
+function partChipClass(part: string): string {
+  return PART_CHIP[part as PartOfDay] ?? "bg-stone-100 text-stone-700 hover:bg-stone-200";
+}
 
 const seasonStart = new Date(SEASON.start + "T00:00:00");
 const seasonEnd = new Date(SEASON.end + "T00:00:00");
@@ -148,19 +159,17 @@ export default function CityCalendar({ refreshKey }: { refreshKey: number }) {
               </div>
               <div className="mt-0.5 flex flex-wrap gap-0.5">
                 {dayEntries.slice(0, 4).map((e) => (
-                  <span
+                  <a
                     key={e.planId}
-                    title={`№${e.team.number} ${e.team.name} · ${partOfDayLabel(
-                      e.partOfDay as PartOfDay,
-                    )}`}
-                    className={`inline-block rounded px-1 text-[10px] font-medium ${
-                      e.isMine
-                        ? "bg-indigo-600 text-white"
-                        : "bg-indigo-100 text-indigo-700"
-                    }`}
+                    href={`/team/${e.team.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`inline-block rounded px-1 text-[10px] font-medium transition-colors ${partChipClass(
+                      e.partOfDay,
+                    )} ${e.isMine ? "ring-1 ring-stone-400" : ""}`}
                   >
-                    №{e.team.number}
-                  </span>
+                    {e.team.number}
+                  </a>
                 ))}
                 {dayEntries.length > 4 && (
                   <span className="text-[10px] text-stone-400">
@@ -173,9 +182,15 @@ export default function CityCalendar({ refreshKey }: { refreshKey: number }) {
         })}
       </div>
 
-      <p className="mt-3 text-xs text-stone-400">
-        Чипсы — команды, заявившие визит в этот день. Ваши выделены цветом. Наведите для деталей.
-      </p>
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-stone-500">
+        <span className="text-stone-400">Цвет чипсы — время суток:</span>
+        {PARTS_OF_DAY.map((p) => (
+          <span key={p.id} className="inline-flex items-center gap-1">
+            <span className={`inline-block h-3 w-3 rounded ${partChipClass(p.id)}`} />
+            {p.label}
+          </span>
+        ))}
+      </div>
     </section>
   );
 }
