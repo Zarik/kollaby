@@ -11,7 +11,7 @@ export default async function AppLayout({
   if (!payload) redirect("/");
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex flex-1 flex-col">
       <Nav teamNumber={payload.number} teamName={payload.name} />
       <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-5">{children}</main>
     </div>
