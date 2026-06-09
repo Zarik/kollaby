@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { teamPhotoUrl } from "@/config/game";
+import { teamPhotoUrl, teamPhotoFullUrl } from "@/config/game";
 
 /** Фото команды с сайта «Бегущего города». Если фото нет (404) — ничего не рендерит. */
 export default function TeamPhoto({
@@ -23,16 +23,23 @@ export default function TeamPhoto({
   if (!ok) return null;
 
   return (
-    // Внешнее изображение фиксированного размера 500×225 — обычный <img> без next/image.
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      ref={ref}
-      src={teamPhotoUrl(number)}
-      alt={`Фото команды №${number}`}
-      width={500}
-      height={225}
-      onError={() => setOk(false)}
-      className={className}
-    />
+    <a
+      href={teamPhotoFullUrl(number)}
+      target="_blank"
+      rel="noopener noreferrer"
+      title="Открыть полное фото"
+    >
+      {/* Внешнее изображение фиксированного размера 500×225 — обычный <img> без next/image. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        ref={ref}
+        src={teamPhotoUrl(number)}
+        alt={`Фото команды №${number}`}
+        width={500}
+        height={225}
+        onError={() => setOk(false)}
+        className={className}
+      />
+    </a>
   );
 }

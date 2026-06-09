@@ -59,3 +59,12 @@ export function teamPhotoUrl(number: string): string {
   const safe = encodeURIComponent(number);
   return `https://img.runcity.org/content/rst/team_start/railway2026/photo-railway2026-teams-${safe}-med.jpg`;
 }
+
+/**
+ * Полноразмерное фото команды с сайта «Бегущего города».
+ * Пример: .../101.jpg
+ */
+export function teamPhotoFullUrl(number: string): string {
+  const safe = encodeURIComponent(number);
+  return `https://img.runcity.org/content/rst/team_start/railway2026/${safe}.jpg`;
+}
