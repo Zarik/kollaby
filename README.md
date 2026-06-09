@@ -57,6 +57,9 @@ node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
 bare-репозиторий запускает хук, который ставит зависимости, делает standalone-сборку под
 PM2 (порт `3011`) и nginx-proxy. Полный процесс и Linux-засады — в **[`deploy/README.md`](deploy/README.md)**.
 
+> ℹ️ Деплой на прод выполняет **только мейнтейнер**. Контрибьюторы вносят изменения
+> через **pull request на GitHub** — выкатку на сервер делает мейнтейнер после merge.
+
 > ⚠️ Две Linux-засады при standalone-сборке (уже решены в скрипте деплоя):
 > 1. **better-sqlite3** — нативный модуль: на сервере пересобирается из исходников
 >    (`npm install better-sqlite3@<ver> --no-save`), не копируется Windows-бинарник.
