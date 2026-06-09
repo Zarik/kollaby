@@ -1,5 +1,11 @@
 # Коллабы · Главный ход
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=nextdotjs&logoColor=white)](https://nextjs.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+[![Live](https://img.shields.io/badge/live-leto2026.zarik.ru-2ea44f)](https://leto2026.zarik.ru)
+
 Сервис координации команд городской игры **«Главный ход»** (формат «Бегущий город»).
 Сезон — лето (10 июня – 31 августа), 8 городов. Помогает командам находить друг друга
 для **коллабораций** (совместное фото в пределах одного города).
