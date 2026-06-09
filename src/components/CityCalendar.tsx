@@ -11,7 +11,7 @@ import {
   isAfter,
   isBefore,
 } from "date-fns";
-import { CITIES, PARTS_OF_DAY, SEASON, type PartOfDay } from "@/config/game";
+import { CITIES, SEASON, type PartOfDay } from "@/config/game";
 import { jsonFetch } from "@/lib/client";
 
 interface CalendarEntry {
@@ -182,15 +182,6 @@ export default function CityCalendar({ refreshKey }: { refreshKey: number }) {
         })}
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-stone-500">
-        <span className="text-stone-400">Цвет чипсы — время суток:</span>
-        {PARTS_OF_DAY.map((p) => (
-          <span key={p.id} className="inline-flex items-center gap-1">
-            <span className={`inline-block h-3 w-3 rounded ${partChipClass(p.id)}`} />
-            {p.label}
-          </span>
-        ))}
-      </div>
     </section>
   );
 }
