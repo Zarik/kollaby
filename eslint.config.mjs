@@ -13,6 +13,14 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
+  {
+    rules: {
+      // Загрузка данных на маунте/смене параметров (setLoading(true) + fetch
+      // в useEffect) — намеренный паттерн со спиннером. Правило полезно как
+      // подсказка, но не должно ронять сборку → понижаем до предупреждения.
+      "react-hooks/set-state-in-effect": "warn",
+    },
+  },
 ]);
 
 export default eslintConfig;

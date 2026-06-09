@@ -1,5 +1,6 @@
 # Коллабы · Главный ход
 
+[![CI](https://github.com/Zarik/kollaby/actions/workflows/ci.yml/badge.svg)](https://github.com/Zarik/kollaby/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=nextdotjs&logoColor=white)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
