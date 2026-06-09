@@ -1,27 +1,22 @@
 # Деплой — push-to-deploy
 
-Прод: **leto2026.zarik.ru** (Timeweb/Hestia, PM2, порт 3011).
-Деплой = `git push` в bare-репозиторий на сервере → hook собирает и перезапускает.
+Прод собирается **на сервере**: `git push` в bare-репозиторий запускает
+`post-receive`-хук, который ставит зависимости, делает standalone-сборку и
+перезапускает приложение под PM2 за nginx-proxy.
 
-## Как задеплоить
+> ℹ️ Конкретные адрес сервера, SSH-пользователь и абсолютные пути здесь намеренно
+> не публикуются — они в приватных ops-заметках мейнтейнера. **Деплой на прод
+> выполняет только мейнтейнер;** контрибьюторы вносят изменения через pull request.
 
-Один раз добавить remote:
+## Как задеплоить (мейнтейнер)
 
-```bash
-git remote add live ssh://user@your-server/path/to/site/repo.git
-```
-
-Дальше каждый деплой:
+Remote `live` указывает на bare-репозиторий на сервере. Каждый деплой:
 
 ```bash
 git push live master
 ```
 
-Сборка идёт **на сервере в фоне**. Смотреть прогресс:
-
-```bash
-ssh your-server tail -f /path/to/site/deploy.log
-```
+Сборка идёт на сервере в фоне; прогресс пишется в `deploy.log` на сервере.
 
 ## Что происходит на сервере
 
@@ -30,36 +25,35 @@ repo.git (bare)  ← push master
    └─ hooks/post-receive
         ├─ checkout кода в  app/
         └─ запуск  shared/deploy.sh  (detached, лог → deploy.log):
-             npm ci → next build → собрать standalone (static+public)
+             npm ci → next build → собрать standalone (static + public)
              → симлинк better-sqlite3-<hash> (фикс Turbopack)
              → подключить shared/.env + ecosystem
              → swap nodeapp (старое в nodeapp.old)
-             → pm2 restart + health-check http://127.0.0.1:3011
+             → pm2 restart + health-check
 ```
 
-## Где что лежит (на сервере)
+## Раскладка (относительно корня сайта на сервере)
 
 | Путь | Назначение |
 |------|-----------|
 | `repo.git/` | bare-репозиторий, точка приёма push |
-| `app/` | рабочее дерево (checkout кода, тут идёт сборка) |
+| `app/` | рабочее дерево (checkout кода, сборка) |
 | `nodeapp/` | то, что реально крутит PM2 (standalone) |
 | `nodeapp.old/` | предыдущая версия — для отката |
 | `shared/.env` | секреты (JWT, SMTP). **Вне сборки — пересборка не трогает** |
-| `shared/ecosystem.config.js` | конфиг PM2 (порт 3011, DB_PATH) |
-| `shared/deploy.sh` | сам скрипт сборки/деплоя |
+| `shared/ecosystem.config.js` | конфиг PM2 (порт, `DB_PATH`) |
+| `shared/deploy.sh` | сам скрипт сборки/деплоя (idempotent, под flock) |
 | `data/kollaby.db` | **прод-БД. Вне nodeapp — деплой её не трогает** |
 
 ## Откат
 
-```bash
-ssh your-server "cd /path/to/site && rm -rf nodeapp && mv nodeapp.old nodeapp && pm2 restart kollaby"
-```
+Откат — переключением `nodeapp` ↔ `nodeapp.old` с последующим `pm2 restart`
+(точные команды — в `shared/deploy.sh` на сервере).
 
 ## Почему так (а не локальная сборка + scp)
 
-- **Сборка на Linux-сервере** убирает кросс-платформенную возню с нативным `better-sqlite3`
-  (на Windows он собирается под Windows и не работает на сервере).
+- **Сборка на Linux-сервере** убирает кросс-платформенную возню с нативным
+  `better-sqlite3` (на Windows он собирается под Windows и не работает на сервере).
 - **Один `git push`** вместо tar→scp→распаковка→ручной ребилд.
 - Сборка идёт под `setsid`/detached, поэтому обрыв SSH во время сборки не ломает деплой.
 - `.env` и БД вынесены в `shared/` и `data/` — пересборка их не затрагивает.
