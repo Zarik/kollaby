@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import {
   CITIES,
   PARTS_OF_DAY,
@@ -10,6 +17,7 @@ import {
 } from "@/config/game";
 import { jsonFetch } from "@/lib/client";
 import { formatVisitDate } from "@/lib/date";
+import { plural } from "@/lib/plural";
 import CityCalendar from "@/components/CityCalendar";
 import Contacts from "@/components/Contacts";
 import ProfileLink from "@/components/ProfileLink";
@@ -50,6 +58,13 @@ interface Proposal {
   team: ProposalTeam;
 }
 
+interface HotSlot {
+  city: string;
+  visitDate: string;
+  teams: number;
+  mine: boolean;
+}
+
 const STATUS_LABEL: Record<Proposal["status"], string> = {
   proposed: "Ожидает ответа",
   accepted: "Принято",
@@ -63,8 +78,10 @@ export default function PlanningView() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [incoming, setIncoming] = useState<Proposal[]>([]);
   const [outgoing, setOutgoing] = useState<Proposal[]>([]);
+  const [hot, setHot] = useState<HotSlot[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
   const [error, setError] = useState("");
+  const formRef = useRef<HTMLFormElement>(null);
 
   // форма заявки
   const [city, setCity] = useState<string>(CITIES[0]);
@@ -81,15 +98,17 @@ export default function PlanningView() {
 
   const loadAll = useCallback(async () => {
     try {
-      const [p, m, pr] = await Promise.all([
+      const [p, m, pr, h] = await Promise.all([
         jsonFetch<{ plans: Plan[] }>("/api/plans"),
         jsonFetch<{ matches: Match[] }>("/api/matches"),
         jsonFetch<{ incoming: Proposal[]; outgoing: Proposal[] }>("/api/proposals"),
+        jsonFetch<{ hot: HotSlot[] }>("/api/hot"),
       ]);
       setPlans(p.plans);
       setMatches(m.matches);
       setIncoming(pr.incoming);
       setOutgoing(pr.outgoing);
+      setHot(h.hot);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ошибка загрузки");
     }
@@ -179,6 +198,12 @@ export default function PlanningView() {
 
   function matchKey(m: Match) {
     return `${m.team.id}|${m.city}|${m.visitDate}`;
+  }
+
+  function pickHotSlot(slot: HotSlot) {
+    setCity(slot.city);
+    setDate(slot.visitDate);
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
   return (
@@ -342,10 +367,44 @@ export default function PlanningView() {
         </section>
       )}
 
+      {/* Горячие даты */}
+      {hot.length > 0 && (
+        <section className={card}>
+          <h2 className="mb-1 flex items-center gap-1.5 text-base font-semibold text-stone-900">
+            <span aria-hidden>🔥</span> Горячие даты
+          </h2>
+          <p className="mb-3 text-sm text-stone-500">
+            Где уже собираются команды. Нажмите — подставим город и дату в форму заявки,
+            чтобы пересечься.
+          </p>
+          <ul className="flex flex-wrap gap-2">
+            {hot.map((s) => (
+              <li key={`${s.city}|${s.visitDate}`}>
+                <button
+                  type="button"
+                  onClick={() => pickHotSlot(s)}
+                  className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm transition-colors hover:border-amber-300 hover:bg-amber-100"
+                >
+                  <span className="font-medium text-stone-900">{s.city}</span>
+                  <span className="text-stone-500">{formatVisitDate(s.visitDate)}</span>
+                  <span className="rounded-full bg-amber-200 px-1.5 py-0.5 text-xs font-medium text-amber-800">
+                    {s.teams} {plural(s.teams, ["команда", "команды", "команд"])}
+                  </span>
+                  {s.mine && (
+                    <span className="text-xs font-medium text-emerald-600">вы здесь</span>
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {/* Заявить визит + мои планы */}
       <section className={card}>
         <h2 className="mb-3 text-base font-semibold text-stone-900">Мои планы</h2>
         <form
+          ref={formRef}
           onSubmit={addPlan}
           className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto_auto_auto]"
         >

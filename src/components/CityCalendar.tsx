@@ -78,6 +78,16 @@ export default function CityCalendar({ refreshKey }: { refreshKey: number }) {
     return map;
   }, [entries]);
 
+  // «Горячие» даты: в выбранном городе планируют ≥2 разных команд.
+  const hotDates = useMemo(() => {
+    const set = new Set<string>();
+    for (const [date, list] of byDate) {
+      const teams = new Set(list.map((e) => e.team.id));
+      if (teams.size >= 2) set.add(date);
+    }
+    return set;
+  }, [byDate]);
+
   const days = useMemo(
     () =>
       eachDayOfInterval({
@@ -146,20 +156,28 @@ export default function CityCalendar({ refreshKey }: { refreshKey: number }) {
           const iso = format(day, "yyyy-MM-dd");
           const inSeason = iso >= SEASON.start && iso <= SEASON.end;
           const dayEntries = byDate.get(iso) ?? [];
+          const isHot = inSeason && hotDates.has(iso);
           return (
             <div
               key={iso}
               className={`min-h-16 rounded-lg border p-1 text-left ${
                 inSeason
-                  ? "border-stone-200 bg-white"
+                  ? isHot
+                    ? "border-amber-300 bg-amber-50/50"
+                    : "border-stone-200 bg-white"
                   : "border-transparent bg-stone-50 text-stone-300"
               }`}
             >
-              <div className="text-[11px] font-medium text-stone-400">
-                {format(day, "d")}
+              <div className="flex items-center justify-between text-[11px] font-medium text-stone-400">
+                <span>{format(day, "d")}</span>
+                {isHot && (
+                  <span title="Горячая дата: здесь ≥2 команд" aria-hidden>
+                    🔥
+                  </span>
+                )}
               </div>
               <div className="mt-0.5 flex flex-wrap gap-0.5">
-                {dayEntries.slice(0, 4).map((e) => (
+                {dayEntries.map((e) => (
                   <a
                     key={e.planId}
                     href={`/team/${e.team.id}`}
@@ -172,11 +190,6 @@ export default function CityCalendar({ refreshKey }: { refreshKey: number }) {
                     {e.team.number}
                   </a>
                 ))}
-                {dayEntries.length > 4 && (
-                  <span className="text-[10px] text-stone-400">
-                    +{dayEntries.length - 4}
-                  </span>
-                )}
               </div>
             </div>
           );

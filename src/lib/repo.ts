@@ -431,6 +431,28 @@ export function setProposalStatus(
   return info.changes > 0;
 }
 
+// ─── «Горячие даты»: слоты город+дата с наибольшим пересечением команд ────────
+
+export interface HotSlot {
+  city: string;
+  visit_date: string;
+  teams: number;
+}
+
+/** Слоты (город + дата), где планируют ≥2 команд, по убыванию числа команд. */
+export function getHotSlots(limit = 8): HotSlot[] {
+  return db
+    .prepare(
+      `SELECT city, visit_date, COUNT(DISTINCT team_id) AS teams
+       FROM plans
+       GROUP BY city, visit_date
+       HAVING teams >= 2
+       ORDER BY teams DESC, visit_date ASC, city ASC
+       LIMIT ?`,
+    )
+    .all(limit) as HotSlot[];
+}
+
 // ─── Дашборд: агрегированная статистика (без персональных данных) ─────────────
 
 export interface DashboardStats {
