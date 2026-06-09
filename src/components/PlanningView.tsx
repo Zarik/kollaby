@@ -9,6 +9,7 @@ import {
   type PartOfDay,
 } from "@/config/game";
 import { jsonFetch } from "@/lib/client";
+import { formatVisitDate } from "@/lib/date";
 import CityCalendar from "@/components/CityCalendar";
 import Contacts from "@/components/Contacts";
 import ProfileLink from "@/components/ProfileLink";
@@ -220,7 +221,7 @@ export default function PlanningView() {
                       </span>
                       <span className="text-stone-500">
                         {" · "}
-                        {m.visitDate} · вы: {partOfDayLabel(m.myPart as PartOfDay)},
+                        {formatVisitDate(m.visitDate)} · вы: {partOfDayLabel(m.myPart as PartOfDay)},
                         они: {partOfDayLabel(m.otherPart as PartOfDay)}
                       </span>
                       <div className="mt-0.5 text-stone-700">
@@ -296,7 +297,7 @@ export default function PlanningView() {
                 <div className="text-sm text-stone-700">
                   Команда №{p.team.number} «{p.team.name}»
                   <ProfileLink teamId={p.team.id} className="mx-1" />— {p.city},{" "}
-                  {p.visitDate}
+                  {formatVisitDate(p.visitDate)}
                   {p.partOfDay && `, ${partOfDayLabel(p.partOfDay as PartOfDay)}`}
                 </div>
                 {p.message && (
@@ -401,7 +402,7 @@ export default function PlanningView() {
               >
                 <span className="text-stone-700">
                   <span className="font-medium text-stone-900">{p.city}</span> ·{" "}
-                  {p.visit_date} · {partOfDayLabel(p.part_of_day as PartOfDay)}
+                  {formatVisitDate(p.visit_date)} · {partOfDayLabel(p.part_of_day as PartOfDay)}
                   {p.note && <span className="text-stone-400"> — {p.note}</span>}
                 </span>
                 <button

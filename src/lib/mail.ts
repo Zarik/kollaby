@@ -1,5 +1,6 @@
 import nodemailer, { type Transporter } from "nodemailer";
 import { GAME_NAME, SERVICE_NAME, partOfDayLabel, isPartOfDay } from "@/config/game";
+import { formatVisitDate } from "@/lib/date";
 
 /**
  * Отправка email через SMTP (nodemailer). Если SMTP не настроен в .env —
@@ -56,7 +57,7 @@ export async function sendProposalEmail(input: ProposalEmailInput): Promise<void
     input.partOfDay && isPartOfDay(input.partOfDay)
       ? `, ${partOfDayLabel(input.partOfDay)}`
       : "";
-  const slot = `${input.city}, ${input.visitDate}${part}`;
+  const slot = `${input.city}, ${formatVisitDate(input.visitDate)}${part}`;
   const subject = `«${SERVICE_NAME}»: команда №${input.fromNumber} предлагает коллаборацию`;
 
   const tgUrl = input.fromTelegram ? `https://t.me/${input.fromTelegram}` : null;

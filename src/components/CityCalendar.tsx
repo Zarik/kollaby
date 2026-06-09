@@ -13,6 +13,7 @@ import {
 } from "date-fns";
 import { CITIES, PARTS_OF_DAY, SEASON, type PartOfDay } from "@/config/game";
 import { jsonFetch } from "@/lib/client";
+import { formatMonthTitle } from "@/lib/date";
 
 interface CalendarEntry {
   planId: number;
@@ -118,7 +119,7 @@ export default function CityCalendar({ refreshKey }: { refreshKey: number }) {
           ←
         </button>
         <span className="text-sm font-medium capitalize text-stone-700">
-          {format(month, "LLLL yyyy")}
+          {formatMonthTitle(month)}
         </span>
         <button
           onClick={() => canNext && setMonth(addMonths(month, 1))}
