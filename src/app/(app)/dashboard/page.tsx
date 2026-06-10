@@ -30,6 +30,35 @@ function StatCard({
   );
 }
 
+/** Горизонтальный бар-чарт по городам. */
+function CityBars({
+  rows,
+  color,
+}: {
+  rows: { city: string; value: number }[];
+  color: string;
+}) {
+  const max = Math.max(1, ...rows.map((r) => r.value));
+  return (
+    <ul className="space-y-2.5">
+      {rows.map((r) => (
+        <li key={r.city} className="flex items-center gap-3 text-sm">
+          <span className="w-28 shrink-0 truncate text-stone-600">{r.city}</span>
+          <div className="h-5 flex-1 overflow-hidden rounded bg-stone-100">
+            <div
+              className={`h-full rounded ${color}`}
+              style={{ width: `${(r.value / max) * 100}%` }}
+            />
+          </div>
+          <span className="w-8 shrink-0 text-right tabular-nums font-medium text-stone-700">
+            {r.value}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export default function DashboardPage() {
   const s = getDashboardStats();
 
@@ -41,6 +70,13 @@ export default function DashboardPage() {
     passed: cityByName.get(city)?.passed ?? 0,
     confirmed: cityByName.get(city)?.confirmed ?? 0,
   })).sort((a, b) => b.planned - a.planned || b.confirmed - a.confirmed);
+
+  const plannedRows = cityRows.map((r) => ({ city: r.city, value: r.planned }));
+  const realRows = CITIES.map((city) => ({
+    city,
+    value: cityByName.get(city)?.confirmed ?? 0,
+  })).sort((a, b) => b.value - a.value || a.city.localeCompare(b.city));
+  const passedTotal = cityRows.reduce((sum, r) => sum + r.passed, 0);
 
   const presenceByCity = new Map(s.presenceByCity.map((p) => [p.city, p.teams]));
 
@@ -85,45 +121,44 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* Визиты по городам */}
-      <section className={card}>
-        <div className="mb-1 flex items-baseline justify-between gap-2">
-          <h2 className="text-base font-semibold text-stone-900">Визиты по городам</h2>
-          <span className="text-xs text-stone-400">
-            реально были: <b className="text-emerald-600">{s.confirmedVisits}</b>
-          </span>
-        </div>
-        <p className="mb-4 text-xs text-stone-400">
-          «Запланировано» — заявок; «Прошло» — заявок с прошедшей датой; «Были&nbsp;(&gt;1ч)» —
-          подтверждено по статусу «Я здесь» дольше часа.
-        </p>
-        {s.plans === 0 && s.confirmedVisits === 0 ? (
-          <p className="text-sm text-stone-400">Пока нет данных.</p>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-stone-200 text-left text-xs text-stone-400">
-                <th className="pb-2 font-medium">Город</th>
-                <th className="pb-2 text-right font-medium">Запланировано</th>
-                <th className="pb-2 text-right font-medium">Прошло</th>
-                <th className="pb-2 text-right font-medium">Были&nbsp;(&gt;1ч)</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-stone-100">
-              {cityRows.map((r) => (
-                <tr key={r.city}>
-                  <td className="py-2 text-stone-700">{r.city}</td>
-                  <td className="py-2 text-right tabular-nums text-stone-700">{r.planned}</td>
-                  <td className="py-2 text-right tabular-nums text-stone-500">{r.passed}</td>
-                  <td className="py-2 text-right tabular-nums font-medium text-emerald-600">
-                    {r.confirmed}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </section>
+      {/* Визиты по городам: планы vs реальность */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Запланированные визиты */}
+        <section className={card}>
+          <div className="mb-1 flex items-baseline justify-between gap-2">
+            <h2 className="text-base font-semibold text-stone-900">Запланированные визиты</h2>
+            <span className="text-xs text-stone-400">
+              всего: <b className="text-indigo-600">{s.plans}</b>
+            </span>
+          </div>
+          <p className="mb-4 text-xs text-stone-400">
+            Заявки команд по городам{passedTotal > 0 ? ` · из них прошло ${passedTotal}` : ""}.
+          </p>
+          {s.plans === 0 ? (
+            <p className="text-sm text-stone-400">Пока нет заявок.</p>
+          ) : (
+            <CityBars rows={plannedRows} color="bg-indigo-500" />
+          )}
+        </section>
+
+        {/* Реальные визиты по «Я здесь» */}
+        <section className={card}>
+          <div className="mb-1 flex items-baseline justify-between gap-2">
+            <h2 className="text-base font-semibold text-stone-900">Реальные визиты</h2>
+            <span className="text-xs text-stone-400">
+              всего: <b className="text-emerald-600">{s.confirmedVisits}</b>
+            </span>
+          </div>
+          <p className="mb-4 text-xs text-stone-400">
+            По кнопке «Я здесь» — засчитаны сессии дольше часа.
+          </p>
+          {s.confirmedVisits === 0 ? (
+            <p className="text-sm text-stone-400">Пока нет подтверждённых визитов.</p>
+          ) : (
+            <CityBars rows={realRows} color="bg-emerald-500" />
+          )}
+        </section>
+      </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Коллаборации */}
