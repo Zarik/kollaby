@@ -257,7 +257,30 @@ export function getMatchesForTeam(teamId: number): MatchRow[] {
 
 // ─── Присутствие «Я здесь» ────────────────────────────────────────────────────
 
+interface PresenceSession {
+  team_id: number;
+  city: string;
+  checked_in_at: string;
+}
+
+/** Записать завершённую сессию присутствия в историю (presence_log). */
+function logPresenceSession(s: PresenceSession, endedAt: string): void {
+  const start = new Date(s.checked_in_at).getTime();
+  const end = new Date(endedAt).getTime();
+  const durationMin = Math.max(0, Math.round((end - start) / 60000));
+  db.prepare(
+    `INSERT INTO presence_log (team_id, city, checked_in_at, ended_at, duration_min)
+     VALUES (?, ?, ?, ?, ?)`,
+  ).run(s.team_id, s.city, s.checked_in_at, endedAt, durationMin);
+}
+
 export function checkIn(teamId: number, city: string, expiresAt: string): void {
+  // Если команда уже была отмечена — закрываем прежнюю сессию в истории.
+  const prev = db
+    .prepare("SELECT team_id, city, checked_in_at FROM presence WHERE team_id = ?")
+    .get(teamId) as PresenceSession | undefined;
+  if (prev) logPresenceSession(prev, nowISO());
+
   db.prepare(
     `INSERT INTO presence (team_id, city, checked_in_at, expires_at)
      VALUES (@teamId, @city, @now, @expiresAt)
@@ -269,12 +292,24 @@ export function checkIn(teamId: number, city: string, expiresAt: string): void {
 }
 
 export function checkOut(teamId: number): void {
+  const row = db
+    .prepare("SELECT team_id, city, checked_in_at FROM presence WHERE team_id = ?")
+    .get(teamId) as PresenceSession | undefined;
+  if (row) logPresenceSession(row, nowISO());
   db.prepare("DELETE FROM presence WHERE team_id = ?").run(teamId);
 }
 
-/** Чистка протухшего присутствия (ленивая, при чтении). */
+/** Чистка протухшего присутствия (ленивая, при чтении) + запись в историю. */
 export function cleanupExpiredPresence(): void {
-  db.prepare("DELETE FROM presence WHERE expires_at <= ?").run(nowISO());
+  const now = nowISO();
+  const expired = db
+    .prepare(
+      "SELECT team_id, city, checked_in_at, expires_at FROM presence WHERE expires_at <= ?",
+    )
+    .all(now) as (PresenceSession & { expires_at: string })[];
+  // Сессия истекает в конце дня — фиксируем ended_at = expires_at.
+  for (const e of expired) logPresenceSession(e, e.expires_at);
+  db.prepare("DELETE FROM presence WHERE expires_at <= ?").run(now);
 }
 
 export interface PresenceRow {
@@ -467,8 +502,8 @@ export interface DashboardStats {
   proposalsDeclined: number;
   proposalsPending: number;
   presenceActive: number; // команд отмечено «Я здесь» прямо сейчас
-  byCity: { city: string; plans: number; teams: number }[];
-  byPart: Record<string, number>; // part_of_day → число заявок
+  confirmedVisits: number; // реальных визитов (по истории «Я здесь», дольше часа)
+  byCity: { city: string; planned: number; passed: number; confirmed: number }[];
   presenceByCity: { city: string; teams: number }[];
 }
 
@@ -491,18 +526,37 @@ export function getDashboardStats(): DashboardStats {
   const statusCount = (s: string) =>
     byStatus.find((r) => r.status === s)?.n ?? 0;
 
-  const byCity = db
-    .prepare(
-      `SELECT city, COUNT(*) AS plans, COUNT(DISTINCT team_id) AS teams
-       FROM plans GROUP BY city ORDER BY plans DESC, city`,
-    )
-    .all() as { city: string; plans: number; teams: number }[];
+  // Сегодняшняя дата (локальная) для разделения «прошло / впереди».
+  const t = new Date();
+  const today = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(
+    t.getDate(),
+  ).padStart(2, "0")}`;
 
-  const byPartRows = db
-    .prepare(`SELECT part_of_day AS part, COUNT(*) AS n FROM plans GROUP BY part_of_day`)
-    .all() as { part: string; n: number }[];
-  const byPart: Record<string, number> = {};
-  for (const r of byPartRows) byPart[r.part] = r.n;
+  // Визиты по городам: запланировано, прошло (дата в прошлом), реально были (>1ч).
+  const plannedRows = db
+    .prepare(`SELECT city, COUNT(*) AS n FROM plans GROUP BY city`)
+    .all() as { city: string; n: number }[];
+  const passedRows = db
+    .prepare(`SELECT city, COUNT(*) AS n FROM plans WHERE visit_date < ? GROUP BY city`)
+    .all(today) as { city: string; n: number }[];
+  const confirmedRows = db
+    .prepare(
+      `SELECT city, COUNT(*) AS n FROM presence_log WHERE duration_min > 60 GROUP BY city`,
+    )
+    .all() as { city: string; n: number }[];
+
+  const cityMap = new Map<string, { planned: number; passed: number; confirmed: number }>();
+  const bump = (city: string, key: "planned" | "passed" | "confirmed", n: number) => {
+    const cur = cityMap.get(city) ?? { planned: 0, passed: 0, confirmed: 0 };
+    cur[key] = n;
+    cityMap.set(city, cur);
+  };
+  for (const r of plannedRows) bump(r.city, "planned", r.n);
+  for (const r of passedRows) bump(r.city, "passed", r.n);
+  for (const r of confirmedRows) bump(r.city, "confirmed", r.n);
+  const byCity = [...cityMap.entries()]
+    .map(([city, v]) => ({ city, ...v }))
+    .sort((a, b) => b.planned - a.planned || a.city.localeCompare(b.city));
 
   const presenceByCity = db
     .prepare(
@@ -529,8 +583,8 @@ export function getDashboardStats(): DashboardStats {
     proposalsDeclined: statusCount("declined"),
     proposalsPending: statusCount("proposed"),
     presenceActive: scalar(`SELECT COUNT(*) AS n FROM presence WHERE expires_at > ?`, now),
+    confirmedVisits: scalar(`SELECT COUNT(*) AS n FROM presence_log WHERE duration_min > 60`),
     byCity,
-    byPart,
     presenceByCity,
   };
 }

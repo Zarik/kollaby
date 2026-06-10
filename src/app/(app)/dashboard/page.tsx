@@ -1,5 +1,5 @@
 import { getDashboardStats } from "@/lib/repo";
-import { CITIES, PARTS_OF_DAY, SERVICE_NAME, type PartOfDay } from "@/config/game";
+import { CITIES, SERVICE_NAME } from "@/config/game";
 
 // Живые цифры — без кэширования.
 export const dynamic = "force-dynamic";
@@ -9,13 +9,6 @@ export const metadata = {
 };
 
 const card = "rounded-2xl border border-stone-200 bg-white p-5 shadow-sm";
-
-/** Цвета времени суток — те же, что в календаре. */
-const PART_BAR: Record<PartOfDay, string> = {
-  morning: "bg-amber-400",
-  day: "bg-sky-400",
-  evening: "bg-violet-400",
-};
 
 function StatCard({
   value,
@@ -40,16 +33,15 @@ function StatCard({
 export default function DashboardPage() {
   const s = getDashboardStats();
 
-  // Бар-чарт визитов по всем 8 городам (включая нулевые) — полная картина.
-  const planByCity = new Map(s.byCity.map((c) => [c.city, c]));
+  // Визиты по всем 8 городам (включая нулевые) — полная картина.
+  const cityByName = new Map(s.byCity.map((c) => [c.city, c]));
   const cityRows = CITIES.map((city) => ({
     city,
-    plans: planByCity.get(city)?.plans ?? 0,
-    teams: planByCity.get(city)?.teams ?? 0,
-  })).sort((a, b) => b.plans - a.plans);
-  const maxCityPlans = Math.max(1, ...cityRows.map((r) => r.plans));
+    planned: cityByName.get(city)?.planned ?? 0,
+    passed: cityByName.get(city)?.passed ?? 0,
+    confirmed: cityByName.get(city)?.confirmed ?? 0,
+  })).sort((a, b) => b.planned - a.planned || b.confirmed - a.confirmed);
 
-  const partTotal = PARTS_OF_DAY.reduce((sum, p) => sum + (s.byPart[p.id] ?? 0), 0);
   const presenceByCity = new Map(s.presenceByCity.map((p) => [p.city, p.teams]));
 
   // Воронка коллабораций
@@ -93,75 +85,47 @@ export default function DashboardPage() {
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Визиты по городам */}
-        <section className={card}>
-          <h2 className="mb-4 text-base font-semibold text-stone-900">Визиты по городам</h2>
-          {s.plans === 0 ? (
-            <p className="text-sm text-stone-400">Пока нет ни одной заявки.</p>
-          ) : (
-            <ul className="space-y-2.5">
+      {/* Визиты по городам */}
+      <section className={card}>
+        <div className="mb-1 flex items-baseline justify-between gap-2">
+          <h2 className="text-base font-semibold text-stone-900">Визиты по городам</h2>
+          <span className="text-xs text-stone-400">
+            реально были: <b className="text-emerald-600">{s.confirmedVisits}</b>
+          </span>
+        </div>
+        <p className="mb-4 text-xs text-stone-400">
+          «Запланировано» — заявок; «Прошло» — заявок с прошедшей датой; «Были&nbsp;(&gt;1ч)» —
+          подтверждено по статусу «Я здесь» дольше часа.
+        </p>
+        {s.plans === 0 && s.confirmedVisits === 0 ? (
+          <p className="text-sm text-stone-400">Пока нет данных.</p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-stone-200 text-left text-xs text-stone-400">
+                <th className="pb-2 font-medium">Город</th>
+                <th className="pb-2 text-right font-medium">Запланировано</th>
+                <th className="pb-2 text-right font-medium">Прошло</th>
+                <th className="pb-2 text-right font-medium">Были&nbsp;(&gt;1ч)</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-stone-100">
               {cityRows.map((r) => (
-                <li key={r.city} className="flex items-center gap-3 text-sm">
-                  <span className="w-28 shrink-0 truncate text-stone-600">{r.city}</span>
-                  <div className="h-5 flex-1 overflow-hidden rounded bg-stone-100">
-                    <div
-                      className="h-full rounded bg-indigo-500"
-                      style={{ width: `${(r.plans / maxCityPlans) * 100}%` }}
-                    />
-                  </div>
-                  <span className="w-8 shrink-0 text-right tabular-nums font-medium text-stone-700">
-                    {r.plans}
-                  </span>
-                </li>
+                <tr key={r.city}>
+                  <td className="py-2 text-stone-700">{r.city}</td>
+                  <td className="py-2 text-right tabular-nums text-stone-700">{r.planned}</td>
+                  <td className="py-2 text-right tabular-nums text-stone-500">{r.passed}</td>
+                  <td className="py-2 text-right tabular-nums font-medium text-emerald-600">
+                    {r.confirmed}
+                  </td>
+                </tr>
               ))}
-            </ul>
-          )}
-        </section>
+            </tbody>
+          </table>
+        )}
+      </section>
 
-        {/* Время суток */}
-        <section className={card}>
-          <h2 className="mb-4 text-base font-semibold text-stone-900">
-            Заявки по времени суток
-          </h2>
-          {partTotal === 0 ? (
-            <p className="text-sm text-stone-400">Пока нет ни одной заявки.</p>
-          ) : (
-            <>
-              <div className="flex h-6 overflow-hidden rounded-lg">
-                {PARTS_OF_DAY.map((p) => {
-                  const n = s.byPart[p.id] ?? 0;
-                  const pct = (n / partTotal) * 100;
-                  if (pct === 0) return null;
-                  return (
-                    <div
-                      key={p.id}
-                      className={PART_BAR[p.id]}
-                      style={{ width: `${pct}%` }}
-                      title={`${p.label}: ${n}`}
-                    />
-                  );
-                })}
-              </div>
-              <ul className="mt-3 space-y-1.5">
-                {PARTS_OF_DAY.map((p) => {
-                  const n = s.byPart[p.id] ?? 0;
-                  const pct = Math.round((n / partTotal) * 100);
-                  return (
-                    <li key={p.id} className="flex items-center gap-2 text-sm">
-                      <span className={`inline-block h-3 w-3 rounded ${PART_BAR[p.id]}`} />
-                      <span className="text-stone-600">{p.label}</span>
-                      <span className="ml-auto tabular-nums text-stone-700">
-                        {n} <span className="text-stone-400">· {pct}%</span>
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-            </>
-          )}
-        </section>
-
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Коллаборации */}
         <section className={card}>
           <h2 className="mb-4 text-base font-semibold text-stone-900">Коллаборации</h2>

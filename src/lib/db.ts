@@ -71,6 +71,18 @@ function migrate(db: Database.Database): void {
     );
     CREATE INDEX IF NOT EXISTS idx_proposals_to ON collab_proposals(to_team_id, status);
     CREATE INDEX IF NOT EXISTS idx_proposals_from ON collab_proposals(from_team_id);
+
+    -- История присутствия: завершённые сессии «Я здесь» (после «Мы уехали»,
+    -- протухания или смены города). Используется для статистики реальных визитов.
+    CREATE TABLE IF NOT EXISTS presence_log (
+      id            INTEGER PRIMARY KEY,
+      team_id       INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+      city          TEXT NOT NULL,
+      checked_in_at TEXT NOT NULL,
+      ended_at      TEXT NOT NULL,
+      duration_min  INTEGER NOT NULL              -- длительность сессии в минутах
+    );
+    CREATE INDEX IF NOT EXISTS idx_presence_log_city ON presence_log(city);
   `);
 
   // Миграции для уже существующих баз (идемпотентно)
