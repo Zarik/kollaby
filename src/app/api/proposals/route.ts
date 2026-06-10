@@ -11,6 +11,7 @@ import {
 } from "@/lib/repo";
 import { isCity } from "@/config/game";
 import { sendProposalEmail } from "@/lib/mail";
+import { todayISO } from "@/lib/time";
 
 /** Сериализация: контакты другой стороны — только при её согласии. */
 function serialize(p: ProposalView) {
@@ -39,8 +40,12 @@ function serialize(p: ProposalView) {
 export async function GET(request: NextRequest) {
   const auth = await requireTeam(request);
   if (!auth.ok) return auth.response;
+  const today = todayISO();
   return NextResponse.json({
-    incoming: getIncomingProposals(auth.teamId).map(serialize),
+    // Входящие — только сегодня и будущее; прошедшие не показываем.
+    incoming: getIncomingProposals(auth.teamId)
+      .filter((p) => p.visit_date >= today)
+      .map(serialize),
     outgoing: getOutgoingProposals(auth.teamId).map(serialize),
   });
 }

@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTeam } from "@/lib/session";
 import { getMatchesForTeam } from "@/lib/repo";
+import { todayISO } from "@/lib/time";
 
 export async function GET(request: NextRequest) {
   const auth = await requireTeam(request);
   if (!auth.ok) return auth.response;
 
-  const matches = getMatchesForTeam(auth.teamId).map((m) => ({
+  const today = todayISO();
+  const matches = getMatchesForTeam(auth.teamId)
+    .filter((m) => m.visit_date >= today)
+    .map((m) => ({
     city: m.city,
     visitDate: m.visit_date,
     myPart: m.my_part,

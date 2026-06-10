@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTeam } from "@/lib/session";
-import { setProposalStatus } from "@/lib/repo";
+import { setProposalStatus, getProposalById, getTeamById } from "@/lib/repo";
+import { sendProposalAnswerEmail } from "@/lib/mail";
 
 /** Принять / отклонить входящее предложение (только адресат). */
 export async function PATCH(
@@ -35,5 +36,32 @@ export async function PATCH(
       { status: 404 },
     );
   }
+
+  // Уведомляем инициатора о принятии/отклонении. Не валим запрос при сбое SMTP.
+  try {
+    const proposal = getProposalById(proposalId);
+    const initiator = proposal ? getTeamById(proposal.from_team_id) : undefined;
+    const answerer = getTeamById(auth.teamId); // ответившая команда = адресат
+    if (proposal && initiator && answerer) {
+      const shares = answerer.contacts_consent === 1;
+      await sendProposalAnswerEmail({
+        toEmail: initiator.email,
+        toName: initiator.name,
+        answerNumber: answerer.number,
+        answerName: answerer.name,
+        status,
+        city: proposal.city,
+        visitDate: proposal.visit_date,
+        partOfDay: proposal.part_of_day,
+        answerEmail: shares ? answerer.email : null,
+        answerPhone: shares ? answerer.phone : null,
+        answerTelegram: shares ? answerer.telegram : null,
+        answerMax: shares ? answerer.max_link : null,
+      });
+    }
+  } catch (err) {
+    console.error("[proposals] не удалось отправить письмо-ответ:", err);
+  }
+
   return NextResponse.json({ ok: true, status });
 }

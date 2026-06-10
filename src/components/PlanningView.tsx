@@ -73,6 +73,23 @@ const STATUS_LABEL: Record<Proposal["status"], string> = {
 
 const card = "rounded-2xl border border-stone-200 bg-white p-4 shadow-sm";
 
+/** Сегодняшняя дата (локальная) yyyy-mm-dd — для отметки «сегодня». */
+const TODAY = (() => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+    d.getDate(),
+  ).padStart(2, "0")}`;
+})();
+
+/** Бейдж «сегодня». */
+function TodayBadge() {
+  return (
+    <span className="ml-1.5 rounded bg-amber-200 px-1.5 py-0.5 align-middle text-[11px] font-semibold text-amber-800">
+      сегодня
+    </span>
+  );
+}
+
 export default function PlanningView() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
@@ -118,11 +135,29 @@ export default function PlanningView() {
     loadAll();
   }, [loadAll]);
 
-  const proposedKeys = useMemo(() => {
+  // Слоты, по которым уже есть предложение (в любую сторону) — предложено или
+  // договорено. Такие матчи скрываем из «Возможностей».
+  const engagedKeys = useMemo(() => {
     const s = new Set<string>();
-    for (const o of outgoing) s.add(`${o.team.id}|${o.city}|${o.visitDate}`);
+    const add = (p: Proposal) => {
+      if (p.status === "proposed" || p.status === "accepted") {
+        s.add(`${p.team.id}|${p.city}|${p.visitDate}`);
+      }
+    };
+    outgoing.forEach(add);
+    incoming.forEach(add);
     return s;
-  }, [outgoing]);
+  }, [outgoing, incoming]);
+
+  const visibleMatches = useMemo(
+    () => matches.filter((m) => !engagedKeys.has(`${m.team.id}|${m.city}|${m.visitDate}`)),
+    [matches, engagedKeys],
+  );
+
+  const pendingIncoming = useMemo(
+    () => incoming.filter((p) => p.status === "proposed").length,
+    [incoming],
+  );
 
   async function addPlan(e: FormEvent) {
     e.preventDefault();
@@ -214,116 +249,33 @@ export default function PlanningView() {
         </div>
       )}
 
-      {/* Возможности коллаборации */}
-      <section className={card}>
-        <h2 className="mb-3 text-base font-semibold text-stone-900">
-          Возможности коллаборации
-        </h2>
-        {notice && (
-          <div className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-            {notice}
-          </div>
-        )}
-        {matches.length === 0 ? (
-          <p className="text-sm text-stone-500">
-            Пока нет пересечений. Заявите визиты ниже — и здесь появятся команды,
-            планы которых совпали с вашими по городу и дате.
-          </p>
-        ) : (
-          <ul className="space-y-2">
-            {matches.map((m) => {
-              const key = matchKey(m);
-              const alreadyProposed = proposedKeys.has(key);
-              return (
-                <li
-                  key={`${key}|${m.myPart}`}
-                  className="rounded-xl border border-stone-200 p-3"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="text-sm">
-                      <span className="font-medium text-stone-900">
-                        {m.city}
-                      </span>
-                      <span className="text-stone-500">
-                        {" · "}
-                        {formatVisitDate(m.visitDate)} · вы: {partOfDayLabel(m.myPart as PartOfDay)},
-                        они: {partOfDayLabel(m.otherPart as PartOfDay)}
-                      </span>
-                      <div className="mt-0.5 text-stone-700">
-                        Команда №{m.team.number} «{m.team.name}»
-                        <ProfileLink teamId={m.team.id} className="ml-1" />
-                        {m.samePartOfDay && (
-                          <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-xs text-emerald-700">
-                            то же время суток
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    {alreadyProposed ? (
-                      <span className="text-xs font-medium text-stone-400">
-                        Предложено ✓
-                      </span>
-                    ) : composeKey === key ? null : (
-                      <button
-                        onClick={() => {
-                          setComposeKey(key);
-                          setComposeMsg("");
-                          setNotice("");
-                        }}
-                        className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
-                      >
-                        Предложить коллаборацию
-                      </button>
-                    )}
-                  </div>
-
-                  {composeKey === key && (
-                    <div className="mt-3 space-y-2">
-                      <textarea
-                        value={composeMsg}
-                        onChange={(e) => setComposeMsg(e.target.value)}
-                        placeholder="Сообщение команде (необязательно)"
-                        rows={2}
-                        className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
-                      />
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => propose(m)}
-                          disabled={sending}
-                          className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-                        >
-                          {sending ? "Отправка…" : "Отправить"}
-                        </button>
-                        <button
-                          onClick={() => setComposeKey(null)}
-                          className="rounded-lg px-3 py-1.5 text-sm text-stone-500 hover:bg-stone-100"
-                        >
-                          Отмена
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
-
-      {/* Входящие предложения */}
+      {/* Входящие предложения — выше «Возможностей» и заметнее */}
       {incoming.length > 0 && (
-        <section className={card}>
-          <h2 className="mb-3 text-base font-semibold text-stone-900">
+        <section className="rounded-2xl border-2 border-indigo-300 bg-indigo-50/60 p-4 shadow-sm">
+          <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-stone-900">
             Входящие предложения
+            {pendingIncoming > 0 && (
+              <span className="rounded-full bg-indigo-600 px-2 py-0.5 text-xs font-semibold text-white">
+                {pendingIncoming} {plural(pendingIncoming, ["новое", "новых", "новых"])}
+              </span>
+            )}
           </h2>
           <ul className="space-y-2">
             {incoming.map((p) => (
-              <li key={p.id} className="rounded-xl border border-stone-200 p-3">
+              <li
+                key={p.id}
+                className={`rounded-xl border p-3 ${
+                  p.visitDate === TODAY
+                    ? "border-amber-300 bg-amber-50"
+                    : "border-indigo-100 bg-white"
+                }`}
+              >
                 <div className="text-sm text-stone-700">
                   Команда №{p.team.number} «{p.team.name}»
                   <ProfileLink teamId={p.team.id} className="mx-1" />— {p.city},{" "}
                   {formatVisitDate(p.visitDate)}
                   {p.partOfDay && `, ${partOfDayLabel(p.partOfDay as PartOfDay)}`}
+                  {p.visitDate === TODAY && <TodayBadge />}
                 </div>
                 {p.message && (
                   <p className="mt-1 text-sm text-stone-500">«{p.message}»</p>
@@ -366,6 +318,98 @@ export default function PlanningView() {
           </ul>
         </section>
       )}
+
+      {/* Возможности коллаборации */}
+      <section className={card}>
+        <h2 className="mb-3 text-base font-semibold text-stone-900">
+          Возможности коллаборации
+        </h2>
+        {notice && (
+          <div className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+            {notice}
+          </div>
+        )}
+        {visibleMatches.length === 0 ? (
+          <p className="text-sm text-stone-500">
+            {matches.length === 0
+              ? "Пока нет пересечений. Заявите визиты ниже — и здесь появятся команды, планы которых совпали с вашими по городу и дате."
+              : "Все пересечения уже в работе — смотрите входящие и отправленные предложения."}
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {visibleMatches.map((m) => {
+              const key = matchKey(m);
+              return (
+                <li
+                  key={`${key}|${m.myPart}`}
+                  className="rounded-xl border border-stone-200 p-3"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="text-sm">
+                      <span className="font-medium text-stone-900">{m.city}</span>
+                      <span className="text-stone-500">
+                        {" · "}
+                        {formatVisitDate(m.visitDate)}
+                        {m.visitDate === TODAY && <TodayBadge />} · вы:{" "}
+                        {partOfDayLabel(m.myPart as PartOfDay)}, они:{" "}
+                        {partOfDayLabel(m.otherPart as PartOfDay)}
+                      </span>
+                      <div className="mt-0.5 text-stone-700">
+                        Команда №{m.team.number} «{m.team.name}»
+                        <ProfileLink teamId={m.team.id} className="ml-1" />
+                        {m.samePartOfDay && (
+                          <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-xs text-emerald-700">
+                            то же время суток
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {composeKey === key ? null : (
+                      <button
+                        onClick={() => {
+                          setComposeKey(key);
+                          setComposeMsg("");
+                          setNotice("");
+                        }}
+                        className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
+                      >
+                        Предложить коллабу
+                      </button>
+                    )}
+                  </div>
+
+                  {composeKey === key && (
+                    <div className="mt-3 space-y-2">
+                      <textarea
+                        value={composeMsg}
+                        onChange={(e) => setComposeMsg(e.target.value)}
+                        placeholder="Сообщение команде (необязательно)"
+                        rows={2}
+                        className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => propose(m)}
+                          disabled={sending}
+                          className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                        >
+                          {sending ? "Отправка…" : "Отправить"}
+                        </button>
+                        <button
+                          onClick={() => setComposeKey(null)}
+                          className="rounded-lg px-3 py-1.5 text-sm text-stone-500 hover:bg-stone-100"
+                        >
+                          Отмена
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
 
       {/* Горячие даты */}
       {hot.length > 0 && (
