@@ -157,19 +157,12 @@ export default function DashboardPage() {
     end: new Date(SEASON.end + "T00:00:00"),
   }).map((d) => format(d, "yyyy-MM-dd"));
   const visitsMap = new Map(s.visitsByDate.map((r) => [r.date, r.n]));
-  const regsMap = new Map(s.regsByDate.map((r) => [r.date, r.n]));
   const realMap = new Map(s.realByDate.map((r) => [r.date, r.n]));
-  let cumTeams = s.regsByDate
-    .filter((r) => r.date < SEASON.start)
-    .reduce((a, r) => a + r.n, 0);
   const visitsSeries: number[] = [];
   const realSeries: number[] = [];
-  const regsSeries: number[] = [];
   for (const d of seasonDays) {
     visitsSeries.push(visitsMap.get(d) ?? 0);
     realSeries.push(realMap.get(d) ?? 0);
-    cumTeams += regsMap.get(d) ?? 0;
-    regsSeries.push(cumTeams);
   }
 
   // Воронка вовлечения
@@ -228,7 +221,7 @@ export default function DashboardPage() {
       {/* Динамика по сезону */}
       <section className={card}>
         <h2 className="mb-4 text-base font-semibold text-stone-900">Динамика по сезону</h2>
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <div>
             <div className="mb-1 flex items-baseline justify-between text-sm">
               <span className="font-medium text-stone-700">Заявки по датам</span>
@@ -253,21 +246,6 @@ export default function DashboardPage() {
               values={realSeries}
               lineClass="stroke-emerald-500"
               areaClass="fill-emerald-500/10"
-            />
-            <div className="mt-1 flex justify-between text-[11px] text-stone-400">
-              <span>10 июня</span>
-              <span>31 авг</span>
-            </div>
-          </div>
-          <div>
-            <div className="mb-1 flex items-baseline justify-between text-sm">
-              <span className="font-medium text-stone-700">Регистрации</span>
-              <span className="text-xs text-stone-400">всего {s.teams}</span>
-            </div>
-            <Sparkline
-              values={regsSeries}
-              lineClass="stroke-amber-500"
-              areaClass="fill-amber-500/10"
             />
             <div className="mt-1 flex justify-between text-[11px] text-stone-400">
               <span>10 июня</span>
