@@ -502,7 +502,7 @@ export interface DashboardStats {
   proposalsDeclined: number;
   proposalsPending: number;
   presenceActive: number; // команд отмечено «Я здесь» прямо сейчас
-  confirmedVisits: number; // реальных визитов (по истории «Я здесь», дольше часа)
+  confirmedVisits: number; // реальных визитов (по истории «Я здесь», дольше 10 минут)
   byCity: { city: string; planned: number; passed: number; confirmed: number }[];
   presenceByCity: { city: string; teams: number }[];
 }
@@ -541,7 +541,7 @@ export function getDashboardStats(): DashboardStats {
     .all(today) as { city: string; n: number }[];
   const confirmedRows = db
     .prepare(
-      `SELECT city, COUNT(*) AS n FROM presence_log WHERE duration_min > 60 GROUP BY city`,
+      `SELECT city, COUNT(*) AS n FROM presence_log WHERE duration_min > 10 GROUP BY city`,
     )
     .all() as { city: string; n: number }[];
 
@@ -583,7 +583,7 @@ export function getDashboardStats(): DashboardStats {
     proposalsDeclined: statusCount("declined"),
     proposalsPending: statusCount("proposed"),
     presenceActive: scalar(`SELECT COUNT(*) AS n FROM presence WHERE expires_at > ?`, now),
-    confirmedVisits: scalar(`SELECT COUNT(*) AS n FROM presence_log WHERE duration_min > 60`),
+    confirmedVisits: scalar(`SELECT COUNT(*) AS n FROM presence_log WHERE duration_min > 10`),
     byCity,
     presenceByCity,
   };

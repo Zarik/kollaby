@@ -59,6 +59,37 @@ function CityBars({
   );
 }
 
+/** Бар-чарт с двумя сегментами: прошло (по дате) + впереди. */
+function PlannedBars({
+  rows,
+}: {
+  rows: { city: string; passed: number; upcoming: number }[];
+}) {
+  const max = Math.max(1, ...rows.map((r) => r.passed + r.upcoming));
+  return (
+    <ul className="space-y-2.5">
+      {rows.map((r) => (
+        <li key={r.city} className="flex items-center gap-3 text-sm">
+          <span className="w-28 shrink-0 truncate text-stone-600">{r.city}</span>
+          <div className="flex h-5 flex-1 overflow-hidden rounded bg-stone-100">
+            <div
+              className="h-full bg-stone-400"
+              style={{ width: `${(r.passed / max) * 100}%` }}
+            />
+            <div
+              className="h-full bg-indigo-500"
+              style={{ width: `${(r.upcoming / max) * 100}%` }}
+            />
+          </div>
+          <span className="w-8 shrink-0 text-right tabular-nums font-medium text-stone-700">
+            {r.passed + r.upcoming}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export default function DashboardPage() {
   const s = getDashboardStats();
 
@@ -71,7 +102,11 @@ export default function DashboardPage() {
     confirmed: cityByName.get(city)?.confirmed ?? 0,
   })).sort((a, b) => b.planned - a.planned || b.confirmed - a.confirmed);
 
-  const plannedRows = cityRows.map((r) => ({ city: r.city, value: r.planned }));
+  const plannedRows = cityRows.map((r) => ({
+    city: r.city,
+    passed: r.passed,
+    upcoming: Math.max(0, r.planned - r.passed),
+  }));
   const realRows = CITIES.map((city) => ({
     city,
     value: cityByName.get(city)?.confirmed ?? 0,
@@ -137,7 +172,17 @@ export default function DashboardPage() {
           {s.plans === 0 ? (
             <p className="text-sm text-stone-400">Пока нет заявок.</p>
           ) : (
-            <CityBars rows={plannedRows} color="bg-indigo-500" />
+            <>
+              <PlannedBars rows={plannedRows} />
+              <div className="mt-3 flex items-center gap-4 text-xs text-stone-500">
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block h-3 w-3 rounded bg-stone-400" /> прошло
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block h-3 w-3 rounded bg-indigo-500" /> впереди
+                </span>
+              </div>
+            </>
           )}
         </section>
 
@@ -150,7 +195,7 @@ export default function DashboardPage() {
             </span>
           </div>
           <p className="mb-4 text-xs text-stone-400">
-            По кнопке «Я здесь» — засчитаны сессии дольше часа.
+            По кнопке «Я здесь» — засчитаны сессии дольше 10 минут.
           </p>
           {s.confirmedVisits === 0 ? (
             <p className="text-sm text-stone-400">Пока нет подтверждённых визитов.</p>
