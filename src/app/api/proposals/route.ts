@@ -41,12 +41,14 @@ export async function GET(request: NextRequest) {
   const auth = await requireTeam(request);
   if (!auth.ok) return auth.response;
   const today = todayISO();
+  // Показываем только сегодня и будущее; прошедшие предложения не показываем.
   return NextResponse.json({
-    // Входящие — только сегодня и будущее; прошедшие не показываем.
     incoming: getIncomingProposals(auth.teamId)
       .filter((p) => p.visit_date >= today)
       .map(serialize),
-    outgoing: getOutgoingProposals(auth.teamId).map(serialize),
+    outgoing: getOutgoingProposals(auth.teamId)
+      .filter((p) => p.visit_date >= today)
+      .map(serialize),
   });
 }
 

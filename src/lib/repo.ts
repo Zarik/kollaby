@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { nowISO } from "./time";
+import { nowISO, todayISO } from "./time";
 
 /** Слой доступа к данным: команды, заявки, присутствие, предложения коллабораций. */
 
@@ -474,18 +474,22 @@ export interface HotSlot {
   teams: number;
 }
 
-/** Слоты (город + дата), где планируют ≥2 команд, по убыванию числа команд. */
+/**
+ * Слоты (город + дата), где планируют ≥2 команд, по убыванию числа команд.
+ * Только сегодня и будущее — прошедшие даты не показываем.
+ */
 export function getHotSlots(limit = 8): HotSlot[] {
   return db
     .prepare(
       `SELECT city, visit_date, COUNT(DISTINCT team_id) AS teams
        FROM plans
+       WHERE visit_date >= ?
        GROUP BY city, visit_date
        HAVING teams >= 2
        ORDER BY teams DESC, visit_date ASC, city ASC
        LIMIT ?`,
     )
-    .all(limit) as HotSlot[];
+    .all(todayISO(), limit) as HotSlot[];
 }
 
 // ─── Дашборд: агрегированная статистика (без персональных данных) ─────────────

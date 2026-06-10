@@ -159,6 +159,16 @@ export default function PlanningView() {
     [incoming],
   );
 
+  // Все предложения — входящие и исходящие — в одном списке, по дате (ближайшие выше).
+  const proposals = useMemo(
+    () =>
+      [
+        ...incoming.map((p) => ({ ...p, dir: "in" as const })),
+        ...outgoing.map((p) => ({ ...p, dir: "out" as const })),
+      ].sort((a, b) => a.visitDate.localeCompare(b.visitDate)),
+    [incoming, outgoing],
+  );
+
   async function addPlan(e: FormEvent) {
     e.preventDefault();
     setError("");
@@ -249,11 +259,11 @@ export default function PlanningView() {
         </div>
       )}
 
-      {/* Входящие предложения — выше «Возможностей» и заметнее */}
-      {incoming.length > 0 && (
+      {/* Предложения — входящие и исходящие, выше «Возможностей» и заметнее */}
+      {proposals.length > 0 && (
         <section className="rounded-2xl border-2 border-indigo-300 bg-indigo-50/60 p-4 shadow-sm">
           <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-stone-900">
-            Входящие предложения
+            Предложения
             {pendingIncoming > 0 && (
               <span className="rounded-full bg-indigo-600 px-2 py-0.5 text-xs font-semibold text-white">
                 {pendingIncoming} {plural(pendingIncoming, ["новое", "новых", "новых"])}
@@ -261,60 +271,74 @@ export default function PlanningView() {
             )}
           </h2>
           <ul className="space-y-2">
-            {incoming.map((p) => (
-              <li
-                key={p.id}
-                className={`rounded-xl border p-3 ${
-                  p.visitDate === TODAY
-                    ? "border-amber-300 bg-amber-50"
-                    : "border-indigo-100 bg-white"
-                }`}
-              >
-                <div className="text-sm text-stone-700">
-                  Команда №{p.team.number} «{p.team.name}»
-                  <ProfileLink teamId={p.team.id} className="mx-1" />— {p.city},{" "}
-                  {formatVisitDate(p.visitDate)}
-                  {p.partOfDay && `, ${partOfDayLabel(p.partOfDay as PartOfDay)}`}
-                  {p.visitDate === TODAY && <TodayBadge />}
-                </div>
-                {p.message && (
-                  <p className="mt-1 text-sm text-stone-500">«{p.message}»</p>
-                )}
-                {p.team.contactsShared && (
-                  <p className="mt-1 text-xs text-stone-500">
-                    Контакты:{" "}
-                    <Contacts
-                      email={p.team.email}
-                      phone={p.team.phone}
-                      telegram={p.team.telegram}
-                      maxLink={p.team.maxLink}
-                    />
-                  </p>
-                )}
-                <div className="mt-2 flex items-center gap-2">
-                  {p.status === "proposed" ? (
-                    <>
-                      <button
-                        onClick={() => answer(p.id, "accepted")}
-                        className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
-                      >
-                        Принять
-                      </button>
-                      <button
-                        onClick={() => answer(p.id, "declined")}
-                        className="rounded-lg px-3 py-1.5 text-sm text-stone-500 hover:bg-stone-100"
-                      >
-                        Отклонить
-                      </button>
-                    </>
-                  ) : (
-                    <span className="text-xs font-medium text-stone-400">
-                      {STATUS_LABEL[p.status]}
+            {proposals.map((p) => {
+              const today = p.visitDate === TODAY;
+              const isIncoming = p.dir === "in";
+              return (
+                <li
+                  key={p.id}
+                  className={`rounded-xl border p-3 ${
+                    today ? "border-amber-300 bg-amber-50" : "border-indigo-100 bg-white"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="text-sm text-stone-700">
+                      {isIncoming ? "Команда " : "Вы → команда "}№{p.team.number} «
+                      {p.team.name}»
+                      <ProfileLink teamId={p.team.id} className="mx-1" />— {p.city},{" "}
+                      {formatVisitDate(p.visitDate)}
+                      {p.partOfDay && `, ${partOfDayLabel(p.partOfDay as PartOfDay)}`}
+                      {today && <TodayBadge />}
+                    </div>
+                    <span
+                      className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium ${
+                        isIncoming
+                          ? "bg-indigo-100 text-indigo-700"
+                          : "bg-stone-200 text-stone-600"
+                      }`}
+                    >
+                      {isIncoming ? "входящее" : "исходящее"}
                     </span>
+                  </div>
+                  {p.message && (
+                    <p className="mt-1 text-sm text-stone-500">«{p.message}»</p>
                   )}
-                </div>
-              </li>
-            ))}
+                  {p.team.contactsShared && (
+                    <p className="mt-1 text-xs text-stone-500">
+                      Контакты:{" "}
+                      <Contacts
+                        email={p.team.email}
+                        phone={p.team.phone}
+                        telegram={p.team.telegram}
+                        maxLink={p.team.maxLink}
+                      />
+                    </p>
+                  )}
+                  <div className="mt-2 flex items-center gap-2">
+                    {isIncoming && p.status === "proposed" ? (
+                      <>
+                        <button
+                          onClick={() => answer(p.id, "accepted")}
+                          className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
+                        >
+                          Принять
+                        </button>
+                        <button
+                          onClick={() => answer(p.id, "declined")}
+                          className="rounded-lg px-3 py-1.5 text-sm text-stone-500 hover:bg-stone-100"
+                        >
+                          Отклонить
+                        </button>
+                      </>
+                    ) : (
+                      <span className="text-xs font-medium text-stone-400">
+                        {STATUS_LABEL[p.status]}
+                      </span>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         </section>
       )}
@@ -342,7 +366,11 @@ export default function PlanningView() {
               return (
                 <li
                   key={`${key}|${m.myPart}`}
-                  className="rounded-xl border border-stone-200 p-3"
+                  className={`rounded-xl border p-3 ${
+                    m.visitDate === TODAY
+                      ? "border-amber-300 bg-amber-50"
+                      : "border-stone-200"
+                  }`}
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="text-sm">
