@@ -96,8 +96,8 @@ export default function NowBoard() {
       <section className={card}>
         <h1 className="mb-1 text-lg font-semibold text-stone-900">Кто здесь сейчас</h1>
         <p className="mb-3 text-sm text-stone-500">
-          Отметьтесь по приезде — статус держится до конца дня. Так другие команды
-          увидят, что вы в городе.
+          Отметьтесь по приезде — статус держится до конца дня или нажмите
+          «Мы уехали». Так другие команды увидят, что вы в городе.
         </p>
 
         {myCity ? (
