@@ -1,5 +1,6 @@
+import { eachDayOfInterval, format } from "date-fns";
 import { getDashboardStats } from "@/lib/repo";
-import { CITIES, SERVICE_NAME } from "@/config/game";
+import { CITIES, SEASON, SERVICE_NAME } from "@/config/game";
 
 // Живые цифры — без кэширования.
 export const dynamic = "force-dynamic";
@@ -90,6 +91,41 @@ function PlannedBars({
   );
 }
 
+/** Мини-график по сезону (SVG). area — заливка под линией. */
+function Sparkline({
+  values,
+  lineClass,
+  areaClass,
+}: {
+  values: number[];
+  lineClass: string;
+  areaClass?: string;
+}) {
+  const w = 600;
+  const h = 60;
+  const n = values.length;
+  const max = Math.max(1, ...values);
+  const pts = values.map((v, i) => {
+    const x = n <= 1 ? 0 : (i / (n - 1)) * w;
+    const y = h - 3 - (v / max) * (h - 6);
+    return [x, y] as const;
+  });
+  const line = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
+  const area = `${line} L${w},${h} L0,${h} Z`;
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="h-16 w-full">
+      {areaClass && <path d={area} className={areaClass} />}
+      <path
+        d={line}
+        fill="none"
+        strokeWidth="2"
+        vectorEffect="non-scaling-stroke"
+        className={lineClass}
+      />
+    </svg>
+  );
+}
+
 export default function DashboardPage() {
   const s = getDashboardStats();
 
@@ -114,6 +150,39 @@ export default function DashboardPage() {
   const passedTotal = cityRows.reduce((sum, r) => sum + r.passed, 0);
 
   const presenceByCity = new Map(s.presenceByCity.map((p) => [p.city, p.teams]));
+
+  // Динамика по сезону: заявки по датам + накопительные регистрации.
+  const seasonDays = eachDayOfInterval({
+    start: new Date(SEASON.start + "T00:00:00"),
+    end: new Date(SEASON.end + "T00:00:00"),
+  }).map((d) => format(d, "yyyy-MM-dd"));
+  const visitsMap = new Map(s.visitsByDate.map((r) => [r.date, r.n]));
+  const regsMap = new Map(s.regsByDate.map((r) => [r.date, r.n]));
+  const realMap = new Map(s.realByDate.map((r) => [r.date, r.n]));
+  let cumTeams = s.regsByDate
+    .filter((r) => r.date < SEASON.start)
+    .reduce((a, r) => a + r.n, 0);
+  const visitsSeries: number[] = [];
+  const realSeries: number[] = [];
+  const regsSeries: number[] = [];
+  for (const d of seasonDays) {
+    visitsSeries.push(visitsMap.get(d) ?? 0);
+    realSeries.push(realMap.get(d) ?? 0);
+    cumTeams += regsMap.get(d) ?? 0;
+    regsSeries.push(cumTeams);
+  }
+
+  // Воронка вовлечения
+  const reach = [
+    { label: "Заявили план", n: s.funnel.planned, color: "bg-indigo-500" },
+    { label: "Есть пересечение", n: s.funnel.matched, color: "bg-sky-500" },
+    { label: "Дошли до предложения", n: s.funnel.proposed, color: "bg-amber-500" },
+    { label: "Состоялась коллаборация", n: s.funnel.collaborated, color: "bg-emerald-500" },
+  ];
+  const reachMax = Math.max(1, s.funnel.planned);
+
+  // План vs факт
+  const pvfPct = s.passedPlans > 0 ? Math.round((s.confirmedPlans / s.passedPlans) * 100) : 0;
 
   // Воронка коллабораций
   const funnel = [
@@ -155,6 +224,58 @@ export default function DashboardPage() {
           accent="text-emerald-600"
         />
       </div>
+
+      {/* Динамика по сезону */}
+      <section className={card}>
+        <h2 className="mb-4 text-base font-semibold text-stone-900">Динамика по сезону</h2>
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+          <div>
+            <div className="mb-1 flex items-baseline justify-between text-sm">
+              <span className="font-medium text-stone-700">Заявки по датам</span>
+              <span className="text-xs text-stone-400">всего {s.plans}</span>
+            </div>
+            <Sparkline
+              values={visitsSeries}
+              lineClass="stroke-indigo-500"
+              areaClass="fill-indigo-500/10"
+            />
+            <div className="mt-1 flex justify-between text-[11px] text-stone-400">
+              <span>10 июня</span>
+              <span>31 авг</span>
+            </div>
+          </div>
+          <div>
+            <div className="mb-1 flex items-baseline justify-between text-sm">
+              <span className="font-medium text-stone-700">Реальные визиты</span>
+              <span className="text-xs text-stone-400">всего {s.confirmedVisits}</span>
+            </div>
+            <Sparkline
+              values={realSeries}
+              lineClass="stroke-emerald-500"
+              areaClass="fill-emerald-500/10"
+            />
+            <div className="mt-1 flex justify-between text-[11px] text-stone-400">
+              <span>10 июня</span>
+              <span>31 авг</span>
+            </div>
+          </div>
+          <div>
+            <div className="mb-1 flex items-baseline justify-between text-sm">
+              <span className="font-medium text-stone-700">Регистрации</span>
+              <span className="text-xs text-stone-400">всего {s.teams}</span>
+            </div>
+            <Sparkline
+              values={regsSeries}
+              lineClass="stroke-amber-500"
+              areaClass="fill-amber-500/10"
+            />
+            <div className="mt-1 flex justify-between text-[11px] text-stone-400">
+              <span>10 июня</span>
+              <span>31 авг</span>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Визиты по городам: планы vs реальность */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -201,6 +322,65 @@ export default function DashboardPage() {
             <p className="text-sm text-stone-400">Пока нет подтверждённых визитов.</p>
           ) : (
             <CityBars rows={realRows} color="bg-emerald-500" />
+          )}
+        </section>
+      </div>
+
+      {/* Путь к коллаборации + План vs факт */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Воронка вовлечения */}
+        <section className={card}>
+          <h2 className="mb-1 text-base font-semibold text-stone-900">Путь к коллаборации</h2>
+          <p className="mb-4 text-xs text-stone-400">
+            Сколько команд доходит до каждого шага — видно, где теряем.
+          </p>
+          <ul className="space-y-2.5">
+            {reach.map((r) => (
+              <li key={r.label} className="flex items-center gap-3 text-sm">
+                <span className="w-44 shrink-0 text-stone-600">{r.label}</span>
+                <div className="h-5 flex-1 overflow-hidden rounded bg-stone-100">
+                  <div
+                    className={`h-full rounded ${r.color}`}
+                    style={{ width: `${(r.n / reachMax) * 100}%` }}
+                  />
+                </div>
+                <span className="w-8 shrink-0 text-right tabular-nums font-medium text-stone-700">
+                  {r.n}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        {/* План vs факт */}
+        <section className={card}>
+          <h2 className="mb-1 text-base font-semibold text-stone-900">План vs факт</h2>
+          <p className="mb-4 text-xs text-stone-400">
+            Доля прошедших планов, подтверждённых присутствием «Я здесь» (&gt;10 мин).
+          </p>
+          {s.passedPlans === 0 ? (
+            <p className="text-sm text-stone-400">Прошедших планов пока нет.</p>
+          ) : (
+            <div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-4xl font-bold tabular-nums text-emerald-600">
+                  {pvfPct}%
+                </span>
+                <span className="text-sm text-stone-500">
+                  {s.confirmedPlans} из {s.passedPlans} прошедших планов
+                </span>
+              </div>
+              <div className="mt-3 h-3 w-full overflow-hidden rounded-full bg-stone-100">
+                <div
+                  className="h-full rounded-full bg-emerald-500"
+                  style={{ width: `${pvfPct}%` }}
+                />
+              </div>
+              <p className="mt-2 text-xs text-stone-400">
+                Остальные заявки не подтверждены присутствием — команда не отметилась или
+                пробыла меньше 10 минут.
+              </p>
+            </div>
           )}
         </section>
       </div>

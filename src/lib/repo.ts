@@ -505,6 +505,15 @@ export interface DashboardStats {
   confirmedVisits: number; // реальных визитов (по истории «Я здесь», дольше 10 минут)
   byCity: { city: string; planned: number; passed: number; confirmed: number }[];
   presenceByCity: { city: string; teams: number }[];
+  // Воронка вовлечения (число команд на каждом шаге)
+  funnel: { planned: number; matched: number; proposed: number; collaborated: number };
+  // План vs факт: прошедшие планы и сколько из них подтверждено присутствием (>10 мин)
+  passedPlans: number;
+  confirmedPlans: number;
+  // Динамика по датам
+  visitsByDate: { date: string; n: number }[]; // заявки по visit_date
+  regsByDate: { date: string; n: number }[]; // регистрации по дате создания
+  realByDate: { date: string; n: number }[]; // реальные визиты (>10 мин) по дате заезда
 }
 
 function scalar(sql: string, ...params: unknown[]): number {
@@ -586,5 +595,47 @@ export function getDashboardStats(): DashboardStats {
     confirmedVisits: scalar(`SELECT COUNT(*) AS n FROM presence_log WHERE duration_min > 10`),
     byCity,
     presenceByCity,
+    funnel: {
+      planned: scalar(`SELECT COUNT(DISTINCT team_id) AS n FROM plans`),
+      matched: scalar(
+        `SELECT COUNT(DISTINCT a.team_id) AS n FROM plans a
+         JOIN plans b ON a.city = b.city AND a.visit_date = b.visit_date AND a.team_id <> b.team_id`,
+      ),
+      proposed: scalar(
+        `SELECT COUNT(*) AS n FROM (
+           SELECT from_team_id AS t FROM collab_proposals
+           UNION SELECT to_team_id FROM collab_proposals)`,
+      ),
+      collaborated: scalar(
+        `SELECT COUNT(*) AS n FROM (
+           SELECT from_team_id AS t FROM collab_proposals WHERE status = 'accepted'
+           UNION SELECT to_team_id FROM collab_proposals WHERE status = 'accepted')`,
+      ),
+    },
+    passedPlans: scalar(`SELECT COUNT(*) AS n FROM plans WHERE visit_date < ?`, today),
+    confirmedPlans: scalar(
+      `SELECT COUNT(*) AS n FROM plans p
+       WHERE p.visit_date < ?
+         AND EXISTS (
+           SELECT 1 FROM presence_log pl
+           WHERE pl.team_id = p.team_id AND pl.city = p.city
+             AND substr(pl.checked_in_at, 1, 10) = p.visit_date
+             AND pl.duration_min > 10)`,
+      today,
+    ),
+    visitsByDate: db
+      .prepare(`SELECT visit_date AS date, COUNT(*) AS n FROM plans GROUP BY visit_date ORDER BY visit_date`)
+      .all() as { date: string; n: number }[],
+    regsByDate: db
+      .prepare(
+        `SELECT substr(created_at, 1, 10) AS date, COUNT(*) AS n FROM teams GROUP BY date ORDER BY date`,
+      )
+      .all() as { date: string; n: number }[],
+    realByDate: db
+      .prepare(
+        `SELECT substr(checked_in_at, 1, 10) AS date, COUNT(*) AS n
+         FROM presence_log WHERE duration_min > 10 GROUP BY date ORDER BY date`,
+      )
+      .all() as { date: string; n: number }[],
   };
 }
