@@ -36,6 +36,19 @@ function fromAddress(): string {
   );
 }
 
+/** Шапка автоуведомления о коллаборации (НЕ для писем регистрации). */
+const COLLAB_NOTICE_TEXT = [
+  "***********",
+  "Не отвечайте на это письмо — оно автоматическое, пишите, а лучше звоните по контактам, указанным ниже.",
+  "***********",
+].join("\n");
+
+const COLLAB_NOTICE_HTML =
+  `<p style="margin:0 0 14px;border:1px solid #e7e5e4;background:#fafaf9;` +
+  `padding:10px 12px;border-radius:8px;color:#57534e;font-size:13px;line-height:1.45;">` +
+  `Не отвечайте на это письмо — оно автоматическое. Пишите, а лучше звоните ` +
+  `по контактам, указанным ниже.</p>`;
+
 export interface ProposalEmailInput {
   toEmail: string;
   toName: string;
@@ -73,6 +86,8 @@ export async function sendProposalEmail(input: ProposalEmailInput): Promise<void
   const appUrl = process.env.APP_URL ?? "";
 
   const text = [
+    COLLAB_NOTICE_TEXT,
+    "",
     `Здравствуйте, команда «${input.toName}»!`,
     "",
     `Команда №${input.fromNumber} «${input.fromName}» предлагает вам коллаборацию в игре «${GAME_NAME}».`,
@@ -103,6 +118,7 @@ export async function sendProposalEmail(input: ProposalEmailInput): Promise<void
     : "Контакты команды скрыты — ответьте через сервис.";
 
   const html = `
+    ${COLLAB_NOTICE_HTML}
     <p>Здравствуйте, команда «${input.toName}»!</p>
     <p>Команда №${input.fromNumber} «${input.fromName}» предлагает вам коллаборацию в игре «${GAME_NAME}».</p>
     <p>Место и время: <b>${slot}</b>.</p>
@@ -174,6 +190,8 @@ export async function sendProposalAnswerEmail(
         : "";
 
   const text = [
+    COLLAB_NOTICE_TEXT,
+    "",
     `Здравствуйте, команда «${input.toName}»!`,
     "",
     `Команда №${input.answerNumber} «${input.answerName}» ${verb} ваше предложение коллаборации в игре «${GAME_NAME}».`,
@@ -204,6 +222,7 @@ export async function sendProposalAnswerEmail(
         : "";
 
   const html = `
+    ${COLLAB_NOTICE_HTML}
     <p>Здравствуйте, команда «${input.toName}»!</p>
     <p>Команда №${input.answerNumber} «${input.answerName}» <b>${verb}</b> ваше предложение коллаборации в игре «${GAME_NAME}».</p>
     <p>Место и время: <b>${slot}</b>.</p>
