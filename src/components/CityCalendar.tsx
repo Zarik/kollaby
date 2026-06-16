@@ -39,9 +39,25 @@ function partChipClass(part: string): string {
 const seasonStart = new Date(SEASON.start + "T00:00:00");
 const seasonEnd = new Date(SEASON.end + "T00:00:00");
 
-export default function CityCalendar({ refreshKey }: { refreshKey: number }) {
-  const [city, setCity] = useState<string>(CITIES[0]);
-  const [month, setMonth] = useState<Date>(startOfMonth(seasonStart));
+export default function CityCalendar({
+  refreshKey,
+  city: cityProp,
+  onCityChange,
+  month: monthProp,
+  onMonthChange,
+}: {
+  refreshKey: number;
+  city?: string;
+  onCityChange?: (city: string) => void;
+  month?: Date;
+  onMonthChange?: (month: Date) => void;
+}) {
+  const [cityState, setCityState] = useState<string>(CITIES[0]);
+  const city = cityProp ?? cityState;
+  const setCity = onCityChange ?? setCityState;
+  const [monthState, setMonthState] = useState<Date>(startOfMonth(seasonStart));
+  const month = monthProp ?? monthState;
+  const setMonth = onMonthChange ?? setMonthState;
   const [entries, setEntries] = useState<CalendarEntry[]>([]);
   const [loading, setLoading] = useState(false);
 

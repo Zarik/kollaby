@@ -18,7 +18,7 @@ import {
 import { jsonFetch } from "@/lib/client";
 import { formatVisitDate } from "@/lib/date";
 import { plural } from "@/lib/plural";
-import CityCalendar from "@/components/CityCalendar";
+import CalendarTabs from "@/components/CalendarTabs";
 import Contacts from "@/components/Contacts";
 import ProfileLink from "@/components/ProfileLink";
 
@@ -548,8 +548,8 @@ export default function PlanningView() {
         )}
       </section>
 
-      {/* Календарь по городу */}
-      <CityCalendar refreshKey={refreshKey} />
+      {/* Календарь: по городам / по датам */}
+      <CalendarTabs refreshKey={refreshKey} />
     </div>
   );
 }

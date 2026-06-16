@@ -492,6 +492,28 @@ export function getHotSlots(limit = 8): HotSlot[] {
     .all(todayISO(), limit) as HotSlot[];
 }
 
+export interface AgendaRow {
+  visit_date: string;
+  city: string;
+  part_of_day: string;
+  team_id: number;
+  number: string;
+  name: string;
+}
+
+/** Все заявки начиная с даты `from` (для вида «Календарь по датам»). */
+export function getAgenda(from: string): AgendaRow[] {
+  return db
+    .prepare(
+      `SELECT p.visit_date, p.city, p.part_of_day, t.id AS team_id, t.number, t.name
+       FROM plans p
+       JOIN teams t ON t.id = p.team_id
+       WHERE p.visit_date >= ?
+       ORDER BY p.visit_date, p.city, p.part_of_day, t.number`,
+    )
+    .all(from) as AgendaRow[];
+}
+
 // ─── Дашборд: агрегированная статистика (без персональных данных) ─────────────
 
 export interface DashboardStats {

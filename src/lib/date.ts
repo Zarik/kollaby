@@ -15,3 +15,10 @@ export function formatVisitDate(iso: string): string {
 export function formatMonthTitle(date: Date): string {
   return format(date, "LLLL yyyy", { locale: ru });
 }
+
+/** Дата с днём недели для ленты: «вт, 10 июня». */
+export function formatAgendaDate(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  if (!y || !m || !d) return iso;
+  return format(new Date(y, m - 1, d), "EEEEEE, d MMMM", { locale: ru });
+}
