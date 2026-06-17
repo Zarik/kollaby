@@ -39,6 +39,14 @@ function partChipClass(part: string): string {
 const seasonStart = new Date(SEASON.start + "T00:00:00");
 const seasonEnd = new Date(SEASON.end + "T00:00:00");
 
+/** Сегодняшняя дата (локальная) yyyy-mm-dd — прошедшие дни гасим серым. */
+const TODAY_STR = (() => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+    d.getDate(),
+  ).padStart(2, "0")}`;
+})();
+
 export default function CityCalendar({
   refreshKey,
   city: cityProp,
@@ -171,17 +179,19 @@ export default function CityCalendar({
         {days.map((day) => {
           const iso = format(day, "yyyy-MM-dd");
           const inSeason = iso >= SEASON.start && iso <= SEASON.end;
+          // Прошедшие даты (до сегодня) гасим так же, как дни вне сезона.
+          const dimmed = !inSeason || iso < TODAY_STR;
           const dayEntries = byDate.get(iso) ?? [];
-          const isHot = inSeason && hotDates.has(iso);
+          const isHot = !dimmed && hotDates.has(iso);
           return (
             <div
               key={iso}
               className={`min-h-16 rounded-lg border p-1 text-left ${
-                inSeason
-                  ? isHot
+                dimmed
+                  ? "border-transparent bg-stone-50 text-stone-300"
+                  : isHot
                     ? "border-amber-300 bg-amber-50/50"
                     : "border-stone-200 bg-white"
-                  : "border-transparent bg-stone-50 text-stone-300"
               }`}
             >
               <div className="flex items-center justify-between text-[11px] font-medium text-stone-400">
