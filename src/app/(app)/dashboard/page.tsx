@@ -91,15 +91,17 @@ function PlannedBars({
   );
 }
 
-/** Мини-график по сезону (SVG). area — заливка под линией. */
+/** Мини-график по сезону (SVG). area — заливка; markerIndex — точка «сегодня». */
 function Sparkline({
   values,
   lineClass,
   areaClass,
+  markerIndex,
 }: {
   values: number[];
   lineClass: string;
   areaClass?: string;
+  markerIndex?: number;
 }) {
   const w = 600;
   const h = 60;
@@ -112,17 +114,40 @@ function Sparkline({
   });
   const line = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
   const area = `${line} L${w},${h} L0,${h} Z`;
+
+  const hasMarker = markerIndex != null && markerIndex >= 0 && n > 1;
+  const markerLeft = hasMarker ? (markerIndex / (n - 1)) * 100 : 0;
+  const markerTop = hasMarker
+    ? ((h - 3 - (values[markerIndex] / max) * (h - 6)) / h) * 100
+    : 0;
+
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="h-16 w-full">
-      {areaClass && <path d={area} className={areaClass} />}
-      <path
-        d={line}
-        fill="none"
-        strokeWidth="2"
-        vectorEffect="non-scaling-stroke"
-        className={lineClass}
-      />
-    </svg>
+    <div className="relative">
+      <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="h-16 w-full">
+        {areaClass && <path d={area} className={areaClass} />}
+        <path
+          d={line}
+          fill="none"
+          strokeWidth="2"
+          vectorEffect="non-scaling-stroke"
+          className={lineClass}
+        />
+      </svg>
+      {hasMarker && (
+        <>
+          <span
+            className="pointer-events-none absolute top-0 bottom-0 w-px -translate-x-1/2 bg-red-500/40"
+            style={{ left: `${markerLeft}%` }}
+            aria-hidden
+          />
+          <span
+            className="pointer-events-none absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-red-500 ring-2 ring-white"
+            style={{ left: `${markerLeft}%`, top: `${markerTop}%` }}
+            title="Сегодня"
+          />
+        </>
+      )}
+    </div>
   );
 }
 
@@ -156,6 +181,12 @@ export default function DashboardPage() {
     start: new Date(SEASON.start + "T00:00:00"),
     end: new Date(SEASON.end + "T00:00:00"),
   }).map((d) => format(d, "yyyy-MM-dd"));
+  const t = new Date();
+  const todayStr = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(
+    t.getDate(),
+  ).padStart(2, "0")}`;
+  const todayIndex = seasonDays.indexOf(todayStr);
+
   const visitsMap = new Map(s.visitsByDate.map((r) => [r.date, r.n]));
   const realMap = new Map(s.realByDate.map((r) => [r.date, r.n]));
   const visitsSeries: number[] = [];
@@ -220,7 +251,15 @@ export default function DashboardPage() {
 
       {/* Динамика по сезону */}
       <section className={card}>
-        <h2 className="mb-4 text-base font-semibold text-stone-900">Динамика по сезону</h2>
+        <div className="mb-4 flex items-center justify-between gap-2">
+          <h2 className="text-base font-semibold text-stone-900">Динамика по сезону</h2>
+          {todayIndex >= 0 && (
+            <span className="inline-flex items-center gap-1.5 text-xs text-stone-500">
+              <span className="inline-block h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white" />
+              сегодня
+            </span>
+          )}
+        </div>
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <div>
             <div className="mb-1 flex items-baseline justify-between text-sm">
@@ -231,6 +270,7 @@ export default function DashboardPage() {
               values={visitsSeries}
               lineClass="stroke-indigo-500"
               areaClass="fill-indigo-500/10"
+              markerIndex={todayIndex}
             />
             <div className="mt-1 flex justify-between text-[11px] text-stone-400">
               <span>10 июня</span>
@@ -246,6 +286,7 @@ export default function DashboardPage() {
               values={realSeries}
               lineClass="stroke-emerald-500"
               areaClass="fill-emerald-500/10"
+              markerIndex={todayIndex}
             />
             <div className="mt-1 flex justify-between text-[11px] text-stone-400">
               <span>10 июня</span>
