@@ -44,9 +44,9 @@ const COLLAB_NOTICE_TEXT = [
 ].join("\n");
 
 const COLLAB_NOTICE_HTML =
-  `<p style="margin:0 0 14px;border:1px solid #e7e5e4;background:#fafaf9;` +
-  `padding:10px 12px;border-radius:8px;color:#57534e;font-size:13px;line-height:1.45;">` +
-  `Не отвечайте на это письмо — оно автоматическое. Пишите, а лучше звоните ` +
+  `<p style="margin:0 0 18px;border:2px solid #f97316;background:#fefce8;` +
+  `padding:12px 16px;border-radius:8px;color:#92400e;font-size:15px;font-weight:600;line-height:1.5;">` +
+  `⚠️ Не отвечайте на это письмо — оно автоматическое. Пишите, а лучше звоните ` +
   `по контактам, указанным ниже.</p>`;
 
 export interface ProposalEmailInput {
