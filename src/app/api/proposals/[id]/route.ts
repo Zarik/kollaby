@@ -42,6 +42,7 @@ export async function PATCH(
     const proposal = getProposalById(proposalId);
     const initiator = proposal ? getTeamById(proposal.from_team_id) : undefined;
     const answerer = getTeamById(auth.teamId); // ответившая команда = адресат
+    console.info(`[proposals/answer] id=${proposalId} status=${status} proposal=${!!proposal} initiator=${initiator?.email ?? "null"} answerer=${answerer?.number ?? "null"}`);
     if (proposal && initiator && answerer) {
       const shares = answerer.contacts_consent === 1;
       await sendProposalAnswerEmail({
@@ -58,9 +59,12 @@ export async function PATCH(
         answerTelegram: shares ? answerer.telegram : null,
         answerMax: shares ? answerer.max_link : null,
       });
+      console.info(`[proposals/answer] письмо отправлено на ${initiator.email}`);
+    } else {
+      console.warn(`[proposals/answer] письмо НЕ отправлено — proposal=${!!proposal} initiator=${!!initiator} answerer=${!!answerer}`);
     }
   } catch (err) {
-    console.error("[proposals] не удалось отправить письмо-ответ:", err);
+    console.error("[proposals/answer] ошибка отправки письма:", err);
   }
 
   return NextResponse.json({ ok: true, status });
