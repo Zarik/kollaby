@@ -139,6 +139,7 @@ export async function sendProposalEmail(input: ProposalEmailInput): Promise<void
   await transporter.sendMail({
     from: fromAddress(),
     to: input.toEmail,
+    replyTo: input.fromEmail ?? undefined,
     subject,
     text,
     html,
@@ -242,6 +243,7 @@ export async function sendProposalAnswerEmail(
   await transporter.sendMail({
     from: fromAddress(),
     to: input.toEmail,
+    replyTo: input.answerEmail ?? undefined,
     subject,
     text,
     html,
