@@ -1,6 +1,11 @@
 import { eachDayOfInterval, format } from "date-fns";
 import { getDashboardStats } from "@/lib/repo";
 import { CITIES, SEASON, SERVICE_NAME } from "@/config/game";
+import { formatVisitDate } from "@/lib/date";
+
+// Подписи краёв сезона для осей графиков — из конфига, без хардкода.
+const SEASON_START_LABEL = formatVisitDate(SEASON.start);
+const SEASON_END_LABEL = formatVisitDate(SEASON.end);
 
 // Живые цифры — без кэширования.
 export const dynamic = "force-dynamic";
@@ -141,7 +146,7 @@ function Sparkline({
             aria-hidden
           />
           <span
-            className="pointer-events-none absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-red-500 ring-2 ring-white"
+            className="pointer-events-none absolute h-[5px] w-[5px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-red-500 ring-1 ring-white"
             style={{ left: `${markerLeft}%`, top: `${markerTop}%` }}
             title="Сегодня"
           />
@@ -273,8 +278,8 @@ export default function DashboardPage() {
               markerIndex={todayIndex}
             />
             <div className="mt-1 flex justify-between text-[11px] text-stone-400">
-              <span>10 июня</span>
-              <span>31 авг</span>
+              <span>{SEASON_START_LABEL}</span>
+              <span>{SEASON_END_LABEL}</span>
             </div>
           </div>
           <div>
@@ -289,8 +294,8 @@ export default function DashboardPage() {
               markerIndex={todayIndex}
             />
             <div className="mt-1 flex justify-between text-[11px] text-stone-400">
-              <span>10 июня</span>
-              <span>31 авг</span>
+              <span>{SEASON_START_LABEL}</span>
+              <span>{SEASON_END_LABEL}</span>
             </div>
           </div>
         </div>

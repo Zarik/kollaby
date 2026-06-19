@@ -28,7 +28,7 @@ export function isCity(value: unknown): value is City {
 /** Сезон игры (включительно), ISO yyyy-mm-dd. */
 export const SEASON = {
   start: "2026-06-10",
-  end: "2026-08-31",
+  end: "2026-08-28",
 } as const;
 
 /** Время суток для заявок. */
