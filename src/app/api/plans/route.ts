@@ -2,17 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTeam } from "@/lib/session";
 import { createPlan, getPlansByTeam } from "@/lib/repo";
 import { isCity, isPartOfDay, SEASON } from "@/config/game";
+import { todayISO } from "@/lib/time";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+/** Нижняя граница заявки: позднейшая из начала сезона и сегодня (прошлое нельзя). */
+function minVisitDate(): string {
+  const today = todayISO();
+  return today > SEASON.start ? today : SEASON.start;
+}
+
 function isValidVisitDate(date: string): boolean {
   if (!DATE_RE.test(date)) return false;
-  // реальная дата (не 2026-02-31) + в пределах сезона
+  // реальная дата (не 2026-02-31) + в пределах сезона, не в прошлом
   const d = new Date(date + "T00:00:00Z");
   if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== date) {
     return false;
   }
-  return date >= SEASON.start && date <= SEASON.end;
+  return date >= minVisitDate() && date <= SEASON.end;
 }
 
 export async function GET(request: NextRequest) {
@@ -40,7 +47,7 @@ export async function POST(request: NextRequest) {
   if (!isCity(city)) return NextResponse.json({ error: "Неизвестный город" }, { status: 400 });
   if (!isValidVisitDate(visitDate))
     return NextResponse.json(
-      { error: `Дата вне сезона (${SEASON.start} — ${SEASON.end})` },
+      { error: `Выберите дату в пределах ${minVisitDate()} — ${SEASON.end} (прошедшие даты недоступны)` },
       { status: 400 },
     );
   if (!isPartOfDay(partOfDay))

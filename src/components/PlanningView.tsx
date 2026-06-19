@@ -494,7 +494,7 @@ export default function PlanningView() {
           <input
             type="date"
             value={date}
-            min={SEASON.start}
+            min={TODAY > SEASON.start ? TODAY : SEASON.start}
             max={SEASON.end}
             onChange={(e) => setDate(e.target.value)}
             required
