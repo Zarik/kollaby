@@ -204,9 +204,9 @@ export default function DashboardPage() {
   // Воронка вовлечения
   const reach = [
     { label: "Заявили план", n: s.funnel.planned, color: "bg-indigo-500" },
-    { label: "Есть пересечение", n: s.funnel.matched, color: "bg-sky-500" },
+    { label: "С пересечением планов", n: s.funnel.matched, color: "bg-sky-500" },
     { label: "Дошли до предложения", n: s.funnel.proposed, color: "bg-amber-500" },
-    { label: "Состоялась коллаборация", n: s.funnel.collaborated, color: "bg-emerald-500" },
+    { label: "В состоявшихся коллаборациях", n: s.funnel.collaborated, color: "bg-emerald-500" },
   ];
   const reachMax = Math.max(1, s.funnel.planned);
 
@@ -242,8 +242,8 @@ export default function DashboardPage() {
         />
         <StatCard
           value={s.matchPairs}
-          label="Пересечений команд"
-          hint="совпали по городу и дате"
+          label="Пар команд пересеклось"
+          hint="в одном городе в один день"
           accent="text-sky-600"
         />
         <StatCard
@@ -380,7 +380,8 @@ export default function DashboardPage() {
         <section className={card}>
           <h2 className="mb-1 text-base font-semibold text-stone-900">План vs факт</h2>
           <p className="mb-4 text-xs text-stone-400">
-            Доля прошедших планов, подтверждённых присутствием «Я здесь» (&gt;10 мин).
+            Доля прошедших планов, подтверждённых присутствием «Я здесь» (&gt;10 мин)
+            в том же городе ±1 день от даты заявки.
           </p>
           {s.passedPlans === 0 ? (
             <p className="text-sm text-stone-400">Прошедших планов пока нет.</p>

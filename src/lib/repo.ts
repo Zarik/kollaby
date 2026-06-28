@@ -640,12 +640,15 @@ export function getDashboardStats(): DashboardStats {
     },
     passedPlans: scalar(`SELECT COUNT(*) AS n FROM plans WHERE visit_date < ?`, today),
     confirmedPlans: scalar(
+      // Смягчённое совпадение: команда была в этом городе в окне ±1 день от даты
+      // заявки (поглощает разницу UTC/локали и мелкий перенос визита).
       `SELECT COUNT(*) AS n FROM plans p
        WHERE p.visit_date < ?
          AND EXISTS (
            SELECT 1 FROM presence_log pl
            WHERE pl.team_id = p.team_id AND pl.city = p.city
-             AND substr(pl.checked_in_at, 1, 10) = p.visit_date
+             AND date(substr(pl.checked_in_at, 1, 10))
+                 BETWEEN date(p.visit_date, '-1 day') AND date(p.visit_date, '+1 day')
              AND pl.duration_min > 10)`,
       today,
     ),
