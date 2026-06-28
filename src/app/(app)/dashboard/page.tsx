@@ -2,6 +2,7 @@ import { eachDayOfInterval, format } from "date-fns";
 import { getDashboardStats } from "@/lib/repo";
 import { CITIES, SEASON, SERVICE_NAME } from "@/config/game";
 import { formatVisitDate } from "@/lib/date";
+import Sparkline from "@/components/Sparkline";
 
 // Подписи краёв сезона для осей графиков — из конфига, без хардкода.
 const SEASON_START_LABEL = formatVisitDate(SEASON.start);
@@ -93,66 +94,6 @@ function PlannedBars({
         </li>
       ))}
     </ul>
-  );
-}
-
-/** Мини-график по сезону (SVG). area — заливка; markerIndex — точка «сегодня». */
-function Sparkline({
-  values,
-  lineClass,
-  areaClass,
-  markerIndex,
-}: {
-  values: number[];
-  lineClass: string;
-  areaClass?: string;
-  markerIndex?: number;
-}) {
-  const w = 600;
-  const h = 60;
-  const n = values.length;
-  const max = Math.max(1, ...values);
-  const pts = values.map((v, i) => {
-    const x = n <= 1 ? 0 : (i / (n - 1)) * w;
-    const y = h - 3 - (v / max) * (h - 6);
-    return [x, y] as const;
-  });
-  const line = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
-  const area = `${line} L${w},${h} L0,${h} Z`;
-
-  const hasMarker = markerIndex != null && markerIndex >= 0 && n > 1;
-  const markerLeft = hasMarker ? (markerIndex / (n - 1)) * 100 : 0;
-  const markerTop = hasMarker
-    ? ((h - 3 - (values[markerIndex] / max) * (h - 6)) / h) * 100
-    : 0;
-
-  return (
-    <div className="relative">
-      <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="h-16 w-full">
-        {areaClass && <path d={area} className={areaClass} />}
-        <path
-          d={line}
-          fill="none"
-          strokeWidth="2"
-          vectorEffect="non-scaling-stroke"
-          className={lineClass}
-        />
-      </svg>
-      {hasMarker && (
-        <>
-          <span
-            className="pointer-events-none absolute top-0 bottom-0 w-px -translate-x-1/2 bg-red-500/40"
-            style={{ left: `${markerLeft}%` }}
-            aria-hidden
-          />
-          <span
-            className="pointer-events-none absolute h-[5px] w-[5px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-red-500 ring-1 ring-white"
-            style={{ left: `${markerLeft}%`, top: `${markerTop}%` }}
-            title="Сегодня"
-          />
-        </>
-      )}
-    </div>
   );
 }
 
@@ -273,8 +214,10 @@ export default function DashboardPage() {
             </div>
             <Sparkline
               values={visitsSeries}
+              dates={seasonDays}
               lineClass="stroke-indigo-500"
               areaClass="fill-indigo-500/10"
+              accentClass="bg-indigo-500"
               markerIndex={todayIndex}
             />
             <div className="mt-1 flex justify-between text-[11px] text-stone-400">
@@ -289,8 +232,10 @@ export default function DashboardPage() {
             </div>
             <Sparkline
               values={realSeries}
+              dates={seasonDays}
               lineClass="stroke-emerald-500"
               areaClass="fill-emerald-500/10"
+              accentClass="bg-emerald-500"
               markerIndex={todayIndex}
             />
             <div className="mt-1 flex justify-between text-[11px] text-stone-400">
