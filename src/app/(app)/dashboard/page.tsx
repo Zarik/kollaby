@@ -213,14 +213,14 @@ export default function DashboardPage() {
   // План vs факт
   const pvfPct = s.passedPlans > 0 ? Math.round((s.confirmedPlans / s.passedPlans) * 100) : 0;
 
-  // Воронка коллабораций
+  // Воронка коллабораций — с разбивкой «прошло / впереди» по дате визита.
   const funnel = [
-    { label: "Предложено", n: s.proposalsTotal, color: "bg-indigo-500" },
-    { label: "Согласовано", n: s.proposalsAccepted, color: "bg-emerald-500" },
-    { label: "Ожидает", n: s.proposalsPending, color: "bg-amber-500" },
-    { label: "Отклонено", n: s.proposalsDeclined, color: "bg-stone-400" },
+    { label: "Предложено", split: s.proposalsSplit.total, color: "bg-indigo-500" },
+    { label: "Согласовано", split: s.proposalsSplit.accepted, color: "bg-emerald-500" },
+    { label: "Ожидает", split: s.proposalsSplit.proposed, color: "bg-amber-500" },
+    { label: "Отклонено", split: s.proposalsSplit.declined, color: "bg-stone-400" },
   ];
-  const funnelMax = Math.max(1, s.proposalsTotal);
+  const funnelMax = Math.max(1, ...funnel.map((f) => f.split.passed + f.split.upcoming));
 
   return (
     <div className="space-y-6">
@@ -419,22 +419,39 @@ export default function DashboardPage() {
               Предложений пока не было. Они появляются, когда команды договариваются о встрече.
             </p>
           ) : (
-            <ul className="space-y-2.5">
-              {funnel.map((f) => (
-                <li key={f.label} className="flex items-center gap-3 text-sm">
-                  <span className="w-28 shrink-0 text-stone-600">{f.label}</span>
-                  <div className="h-5 flex-1 overflow-hidden rounded bg-stone-100">
-                    <div
-                      className={`h-full rounded ${f.color}`}
-                      style={{ width: `${(f.n / funnelMax) * 100}%` }}
-                    />
-                  </div>
-                  <span className="w-8 shrink-0 text-right tabular-nums font-medium text-stone-700">
-                    {f.n}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <>
+              <ul className="space-y-2.5">
+                {funnel.map((f) => {
+                  const total = f.split.passed + f.split.upcoming;
+                  return (
+                    <li key={f.label} className="flex items-center gap-3 text-sm">
+                      <span className="w-28 shrink-0 text-stone-600">{f.label}</span>
+                      <div className="flex h-5 flex-1 overflow-hidden rounded bg-stone-100">
+                        <div
+                          className="h-full bg-stone-300"
+                          style={{ width: `${(f.split.passed / funnelMax) * 100}%` }}
+                        />
+                        <div
+                          className={`h-full ${f.color}`}
+                          style={{ width: `${(f.split.upcoming / funnelMax) * 100}%` }}
+                        />
+                      </div>
+                      <span className="w-8 shrink-0 text-right tabular-nums font-medium text-stone-700">
+                        {total}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+              <div className="mt-3 flex items-center gap-4 text-xs text-stone-500">
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block h-3 w-3 rounded bg-stone-300" /> дата прошла
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block h-3 w-3 rounded bg-indigo-500" /> впереди (цвет статуса)
+                </span>
+              </div>
+            </>
           )}
         </section>
 

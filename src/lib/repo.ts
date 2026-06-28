@@ -527,6 +527,13 @@ export interface DashboardStats {
   proposalsAccepted: number;
   proposalsDeclined: number;
   proposalsPending: number;
+  // Разбивка предложений на прошедшие (visit_date < сегодня) и будущие — по статусам.
+  proposalsSplit: {
+    total: { passed: number; upcoming: number };
+    accepted: { passed: number; upcoming: number };
+    proposed: { passed: number; upcoming: number };
+    declined: { passed: number; upcoming: number };
+  };
   presenceActive: number; // команд отмечено «Я здесь» прямо сейчас
   confirmedVisits: number; // реальных визитов (по истории «Я здесь», дольше 10 минут)
   byCity: { city: string; planned: number; passed: number; confirmed: number }[];
@@ -566,6 +573,24 @@ export function getDashboardStats(): DashboardStats {
   const today = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(
     t.getDate(),
   ).padStart(2, "0")}`;
+
+  // Предложения коллабораций: прошедшие (дата визита уже была) и будущие, по статусам.
+  const propSplitRows = db
+    .prepare(
+      `SELECT status,
+         SUM(CASE WHEN visit_date < ? THEN 1 ELSE 0 END) AS passed,
+         SUM(CASE WHEN visit_date >= ? THEN 1 ELSE 0 END) AS upcoming
+       FROM collab_proposals GROUP BY status`,
+    )
+    .all(today, today) as { status: string; passed: number; upcoming: number }[];
+  const splitOf = (s: string) => {
+    const r = propSplitRows.find((x) => x.status === s);
+    return { passed: r?.passed ?? 0, upcoming: r?.upcoming ?? 0 };
+  };
+  const splitTotal = propSplitRows.reduce(
+    (a, r) => ({ passed: a.passed + r.passed, upcoming: a.upcoming + r.upcoming }),
+    { passed: 0, upcoming: 0 },
+  );
 
   // Визиты по городам: запланировано, прошло (дата в прошлом), реально были (>1ч).
   const plannedRows = db
@@ -617,6 +642,12 @@ export function getDashboardStats(): DashboardStats {
     proposalsAccepted: statusCount("accepted"),
     proposalsDeclined: statusCount("declined"),
     proposalsPending: statusCount("proposed"),
+    proposalsSplit: {
+      total: splitTotal,
+      accepted: splitOf("accepted"),
+      proposed: splitOf("proposed"),
+      declined: splitOf("declined"),
+    },
     presenceActive: scalar(`SELECT COUNT(*) AS n FROM presence WHERE expires_at > ?`, now),
     confirmedVisits: scalar(`SELECT COUNT(*) AS n FROM presence_log WHERE duration_min > 10`),
     byCity,
