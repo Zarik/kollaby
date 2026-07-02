@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
     partOfDay: r.part_of_day,
     transport: r.transport,
     carSeats: r.car_seats,
+    footPeople: r.foot_people,
     team: { id: r.team_id, number: r.number, name: r.name, isMine: r.team_id === auth.teamId },
   }));
 

@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
     samePartOfDay: m.my_part === m.other_part,
     otherTransport: m.other_transport,
     otherCarSeats: m.other_car_seats,
+    otherFootPeople: m.other_foot_people,
     team: { id: m.other_team_id, number: m.other_number, name: m.other_name },
   }));
 

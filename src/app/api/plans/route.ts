@@ -44,7 +44,8 @@ export async function POST(request: NextRequest) {
   const visitDate = String(body.visitDate ?? "");
   const partOfDay = String(body.partOfDay ?? "");
   const note = body.note != null ? String(body.note).trim() || null : null;
-  // Транспорт (опционально): 'foot' | 'car'; свободные места — только для 'car'.
+  // Транспорт (опционально): 'foot' | 'car'.
+  // car_seats — свободные места (car); foot_people — сколько человек (foot).
   const transport = isTransport(body.transport) ? body.transport : null;
   let carSeats: number | null = null;
   if (transport === "car" && body.carSeats != null && body.carSeats !== "") {
@@ -57,6 +58,17 @@ export async function POST(request: NextRequest) {
     }
     carSeats = n;
   }
+  let footPeople: number | null = null;
+  if (transport === "foot" && body.footPeople != null && body.footPeople !== "") {
+    const n = Number(body.footPeople);
+    if (!Number.isInteger(n) || n < 1 || n > 20) {
+      return NextResponse.json(
+        { error: "Человек — целое число от 1 до 20" },
+        { status: 400 },
+      );
+    }
+    footPeople = n;
+  }
 
   if (!isCity(city)) return NextResponse.json({ error: "Неизвестный город" }, { status: 400 });
   if (!isValidVisitDate(visitDate))
@@ -67,6 +79,6 @@ export async function POST(request: NextRequest) {
   if (!isPartOfDay(partOfDay))
     return NextResponse.json({ error: "Укажите время суток" }, { status: 400 });
 
-  const plan = createPlan({ teamId: auth.teamId, city, visitDate, partOfDay, note, transport, carSeats });
+  const plan = createPlan({ teamId: auth.teamId, city, visitDate, partOfDay, note, transport, carSeats, footPeople });
   return NextResponse.json({ plan }, { status: 201 });
 }

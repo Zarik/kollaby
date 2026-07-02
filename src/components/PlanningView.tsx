@@ -31,6 +31,7 @@ interface Plan {
   note: string | null;
   transport: string | null;
   car_seats: number | null;
+  foot_people: number | null;
 }
 interface Match {
   city: string;
@@ -40,6 +41,7 @@ interface Match {
   samePartOfDay: boolean;
   otherTransport: string | null;
   otherCarSeats: number | null;
+  otherFootPeople: number | null;
   team: { id: number; number: string; name: string };
 }
 interface ProposalTeam {
@@ -111,7 +113,8 @@ export default function PlanningView() {
   const [part, setPart] = useState<PartOfDay>(PARTS_OF_DAY[0].id);
   const [note, setNote] = useState("");
   const [transport, setTransport] = useState<"" | Transport>("");
-  const [seats, setSeats] = useState("");
+  // Число к транспорту: для авто — свободные места, для пеших — сколько человек.
+  const [tCount, setTCount] = useState("");
   const [adding, setAdding] = useState(false);
 
   // компоновка предложения по матчу
@@ -190,13 +193,14 @@ export default function PlanningView() {
           partOfDay: part,
           note,
           transport: transport || null,
-          carSeats: transport === "car" && seats !== "" ? Number(seats) : null,
+          carSeats: transport === "car" && tCount !== "" ? Number(tCount) : null,
+          footPeople: transport === "foot" && tCount !== "" ? Number(tCount) : null,
         }),
       });
       setNote("");
       setDate("");
       setTransport("");
-      setSeats("");
+      setTCount("");
       await loadAll();
       setRefreshKey((k) => k + 1);
     } catch (err) {
@@ -409,7 +413,7 @@ export default function PlanningView() {
                         {m.otherTransport && (
                           <span className="ml-2 rounded bg-stone-100 px-1.5 py-0.5 text-xs text-stone-600">
                             {transportEmoji(m.otherTransport)}{" "}
-                            {transportLabel(m.otherTransport, m.otherCarSeats)}
+                            {transportLabel(m.otherTransport, m.otherCarSeats, m.otherFootPeople)}
                           </span>
                         )}
                       </div>
@@ -537,7 +541,7 @@ export default function PlanningView() {
               onChange={(e) => {
                 const v = e.target.value as "" | Transport;
                 setTransport(v);
-                if (v !== "car") setSeats("");
+                setTCount("");
               }}
               className="rounded-lg border border-stone-300 px-3 py-2 text-sm text-stone-700 focus:border-indigo-500 focus:outline-none"
             >
@@ -545,17 +549,21 @@ export default function PlanningView() {
               <option value="foot">🚶 Пешком</option>
               <option value="car">🚗 На авто</option>
             </select>
-            {transport === "car" && (
+            {transport !== "" && (
               <input
                 type="number"
                 inputMode="numeric"
-                min={0}
+                min={transport === "car" ? 0 : 1}
                 max={20}
-                value={seats}
-                onChange={(e) => setSeats(e.target.value)}
-                placeholder="Свободных мест"
-                title="Сколько свободных мест в машине (необязательно)"
-                className="w-36 rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                value={tCount}
+                onChange={(e) => setTCount(e.target.value)}
+                placeholder={transport === "car" ? "Свободных мест" : "Сколько человек"}
+                title={
+                  transport === "car"
+                    ? "Сколько свободных мест в машине (необязательно)"
+                    : "Сколько человек идёт (необязательно)"
+                }
+                className="w-40 rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
               />
             )}
             <button
@@ -585,7 +593,8 @@ export default function PlanningView() {
                   {p.transport && (
                     <span className="text-stone-500">
                       {" "}
-                      · {transportEmoji(p.transport)} {transportLabel(p.transport, p.car_seats)}
+                      · {transportEmoji(p.transport)}{" "}
+                      {transportLabel(p.transport, p.car_seats, p.foot_people)}
                     </span>
                   )}
                   {p.note && <span className="text-stone-400"> — {p.note}</span>}

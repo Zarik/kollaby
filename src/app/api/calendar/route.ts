@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
     partOfDay: e.part_of_day,
     transport: e.transport,
     carSeats: e.car_seats,
+    footPeople: e.foot_people,
     team: { id: e.team_id, number: e.number, name: e.name },
     isMine: e.team_id === auth.teamId,
   }));

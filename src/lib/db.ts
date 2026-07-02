@@ -88,9 +88,11 @@ function migrate(db: Database.Database): void {
   // Миграции для уже существующих баз (идемпотентно)
   ensureColumn(db, "teams", "telegram", "ALTER TABLE teams ADD COLUMN telegram TEXT");
   ensureColumn(db, "teams", "max_link", "ALTER TABLE teams ADD COLUMN max_link TEXT");
-  // Транспорт заявки: 'foot' | 'car' | NULL; car_seats — свободные места в машине
+  // Транспорт заявки: 'foot' | 'car' | NULL; car_seats — свободные места в машине;
+  // foot_people — сколько человек идёт пешком
   ensureColumn(db, "plans", "transport", "ALTER TABLE plans ADD COLUMN transport TEXT");
   ensureColumn(db, "plans", "car_seats", "ALTER TABLE plans ADD COLUMN car_seats INTEGER");
+  ensureColumn(db, "plans", "foot_people", "ALTER TABLE plans ADD COLUMN foot_people INTEGER");
 }
 
 /** Добавляет колонку, если её ещё нет (ALTER через prepare/run — без многооператорного exec). */

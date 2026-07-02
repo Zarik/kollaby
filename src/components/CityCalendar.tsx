@@ -23,6 +23,7 @@ interface CalendarEntry {
   partOfDay: string;
   transport: string | null;
   carSeats: number | null;
+  footPeople: number | null;
   team: { id: number; number: string; name: string };
   isMine: boolean;
 }
@@ -208,7 +209,7 @@ export default function CityCalendar({
               </div>
               <div className="mt-0.5 flex flex-wrap gap-0.5">
                 {dayEntries.map((e) => {
-                  const tLabel = transportLabel(e.transport, e.carSeats);
+                  const tLabel = transportLabel(e.transport, e.carSeats, e.footPeople);
                   return (
                     <a
                       key={e.planId}
@@ -239,7 +240,7 @@ export default function CityCalendar({
             {p.label}
           </span>
         ))}
-        <span className="text-stone-400">· 🚶 пешком · 🚗 на авто (мест — по наведению)</span>
+        <span className="text-stone-400">· 🚶 пешком · 🚗 на авто (детали — по наведению)</span>
       </div>
     </section>
   );

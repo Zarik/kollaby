@@ -13,6 +13,7 @@ interface Entry {
   partOfDay: string;
   transport: string | null;
   carSeats: number | null;
+  footPeople: number | null;
   team: { id: number; number: string; name: string; isMine: boolean };
 }
 
@@ -137,7 +138,7 @@ export default function DateAgenda({
                     </button>
                     <div className="flex flex-wrap gap-1.5">
                       {c.entries.map((e) => {
-                        const tLabel = transportLabel(e.transport, e.carSeats);
+                        const tLabel = transportLabel(e.transport, e.carSeats, e.footPeople);
                         return (
                           <a
                             key={`${e.team.id}|${e.partOfDay}`}
@@ -174,7 +175,7 @@ export default function DateAgenda({
         <span className="inline-flex items-center gap-1">
           <span aria-hidden>🔥</span> пересечение (≥2 команд)
         </span>
-        <span className="text-stone-400">· 🚶 пешком · 🚗 на авто (мест — по наведению)</span>
+        <span className="text-stone-400">· 🚶 пешком · 🚗 на авто (детали — по наведению)</span>
       </div>
     </section>
   );
