@@ -18,6 +18,7 @@ import {
 import { jsonFetch } from "@/lib/client";
 import { formatVisitDate } from "@/lib/date";
 import { plural } from "@/lib/plural";
+import { transportEmoji, transportLabel, type Transport } from "@/lib/transport";
 import CalendarTabs from "@/components/CalendarTabs";
 import Contacts from "@/components/Contacts";
 import ProfileLink from "@/components/ProfileLink";
@@ -28,6 +29,8 @@ interface Plan {
   visit_date: string;
   part_of_day: string;
   note: string | null;
+  transport: string | null;
+  car_seats: number | null;
 }
 interface Match {
   city: string;
@@ -35,6 +38,8 @@ interface Match {
   myPart: string;
   otherPart: string;
   samePartOfDay: boolean;
+  otherTransport: string | null;
+  otherCarSeats: number | null;
   team: { id: number; number: string; name: string };
 }
 interface ProposalTeam {
@@ -105,6 +110,8 @@ export default function PlanningView() {
   const [date, setDate] = useState("");
   const [part, setPart] = useState<PartOfDay>(PARTS_OF_DAY[0].id);
   const [note, setNote] = useState("");
+  const [transport, setTransport] = useState<"" | Transport>("");
+  const [seats, setSeats] = useState("");
   const [adding, setAdding] = useState(false);
 
   // компоновка предложения по матчу
@@ -177,10 +184,19 @@ export default function PlanningView() {
     try {
       await jsonFetch("/api/plans", {
         method: "POST",
-        body: JSON.stringify({ city, visitDate: date, partOfDay: part, note }),
+        body: JSON.stringify({
+          city,
+          visitDate: date,
+          partOfDay: part,
+          note,
+          transport: transport || null,
+          carSeats: transport === "car" && seats !== "" ? Number(seats) : null,
+        }),
       });
       setNote("");
       setDate("");
+      setTransport("");
+      setSeats("");
       await loadAll();
       setRefreshKey((k) => k + 1);
     } catch (err) {
@@ -390,6 +406,12 @@ export default function PlanningView() {
                             то же время суток
                           </span>
                         )}
+                        {m.otherTransport && (
+                          <span className="ml-2 rounded bg-stone-100 px-1.5 py-0.5 text-xs text-stone-600">
+                            {transportEmoji(m.otherTransport)}{" "}
+                            {transportLabel(m.otherTransport, m.otherCarSeats)}
+                          </span>
+                        )}
                       </div>
                     </div>
                     {composeKey === key ? null : (
@@ -475,49 +497,75 @@ export default function PlanningView() {
       {/* Заявить визит + мои планы */}
       <section className={card}>
         <h2 className="mb-3 text-base font-semibold text-stone-900">Мои планы</h2>
-        <form
-          ref={formRef}
-          onSubmit={addPlan}
-          className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto_auto_auto]"
-        >
-          <select
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
-            className="rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
-          >
-            {CITIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-          <input
-            type="date"
-            value={date}
-            min={TODAY > SEASON.start ? TODAY : SEASON.start}
-            max={SEASON.end}
-            onChange={(e) => setDate(e.target.value)}
-            required
-            className="rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
-          />
-          <select
-            value={part}
-            onChange={(e) => setPart(e.target.value as PartOfDay)}
-            className="rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
-          >
-            {PARTS_OF_DAY.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.label}
-              </option>
-            ))}
-          </select>
-          <button
-            type="submit"
-            disabled={adding}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-          >
-            {adding ? "…" : "Заявить визит"}
-          </button>
+        <form ref={formRef} onSubmit={addPlan} className="mb-4 space-y-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto_auto]">
+            <select
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              className="rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+            >
+              {CITIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+            <input
+              type="date"
+              value={date}
+              min={TODAY > SEASON.start ? TODAY : SEASON.start}
+              max={SEASON.end}
+              onChange={(e) => setDate(e.target.value)}
+              required
+              className="rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+            />
+            <select
+              value={part}
+              onChange={(e) => setPart(e.target.value as PartOfDay)}
+              className="rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+            >
+              {PARTS_OF_DAY.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={transport}
+              onChange={(e) => {
+                const v = e.target.value as "" | Transport;
+                setTransport(v);
+                if (v !== "car") setSeats("");
+              }}
+              className="rounded-lg border border-stone-300 px-3 py-2 text-sm text-stone-700 focus:border-indigo-500 focus:outline-none"
+            >
+              <option value="">Как добираетесь? (необязательно)</option>
+              <option value="foot">🚶 Пешком</option>
+              <option value="car">🚗 На авто</option>
+            </select>
+            {transport === "car" && (
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                max={20}
+                value={seats}
+                onChange={(e) => setSeats(e.target.value)}
+                placeholder="Свободных мест"
+                title="Сколько свободных мест в машине (необязательно)"
+                className="w-36 rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+              />
+            )}
+            <button
+              type="submit"
+              disabled={adding}
+              className="ml-auto rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {adding ? "…" : "Заявить визит"}
+            </button>
+          </div>
         </form>
 
         {plans.length === 0 ? (
@@ -534,6 +582,12 @@ export default function PlanningView() {
                 <span className="text-stone-700">
                   <span className="font-medium text-stone-900">{p.city}</span> ·{" "}
                   {formatVisitDate(p.visit_date)} · {partOfDayLabel(p.part_of_day as PartOfDay)}
+                  {p.transport && (
+                    <span className="text-stone-500">
+                      {" "}
+                      · {transportEmoji(p.transport)} {transportLabel(p.transport, p.car_seats)}
+                    </span>
+                  )}
                   {p.note && <span className="text-stone-400"> — {p.note}</span>}
                 </span>
                 <button

@@ -25,6 +25,8 @@ export interface Plan {
   visit_date: string;
   part_of_day: string;
   note: string | null;
+  transport: string | null; // 'foot' | 'car' | null
+  car_seats: number | null; // свободные места (только для 'car')
   created_at: string;
 }
 
@@ -150,11 +152,13 @@ export function createPlan(input: {
   visitDate: string;
   partOfDay: string;
   note?: string | null;
+  transport?: string | null;
+  carSeats?: number | null;
 }): Plan {
   const info = db
     .prepare(
-      `INSERT INTO plans (team_id, city, visit_date, part_of_day, note, created_at)
-       VALUES (@teamId, @city, @visitDate, @partOfDay, @note, @createdAt)`,
+      `INSERT INTO plans (team_id, city, visit_date, part_of_day, note, transport, car_seats, created_at)
+       VALUES (@teamId, @city, @visitDate, @partOfDay, @note, @transport, @carSeats, @createdAt)`,
     )
     .run({
       teamId: input.teamId,
@@ -162,6 +166,8 @@ export function createPlan(input: {
       visitDate: input.visitDate,
       partOfDay: input.partOfDay,
       note: input.note ?? null,
+      transport: input.transport ?? null,
+      carSeats: input.carSeats ?? null,
       createdAt: nowISO(),
     });
   return db
@@ -199,6 +205,8 @@ export interface CalendarEntry {
   plan_id: number;
   visit_date: string;
   part_of_day: string;
+  transport: string | null;
+  car_seats: number | null;
   team_id: number;
   number: string;
   name: string;
@@ -212,7 +220,7 @@ export function getCityCalendar(
 ): CalendarEntry[] {
   return db
     .prepare(
-      `SELECT p.id AS plan_id, p.visit_date, p.part_of_day,
+      `SELECT p.id AS plan_id, p.visit_date, p.part_of_day, p.transport, p.car_seats,
               t.id AS team_id, t.number, t.name
        FROM plans p
        JOIN teams t ON t.id = p.team_id
@@ -231,6 +239,8 @@ export interface MatchRow {
   my_part: string;
   other_plan_id: number;
   other_part: string;
+  other_transport: string | null;
+  other_car_seats: number | null;
   other_team_id: number;
   other_number: string;
   other_name: string;
@@ -242,6 +252,7 @@ export function getMatchesForTeam(teamId: number): MatchRow[] {
     .prepare(
       `SELECT myp.id AS my_plan_id, myp.city, myp.visit_date, myp.part_of_day AS my_part,
               op.id AS other_plan_id, op.part_of_day AS other_part,
+              op.transport AS other_transport, op.car_seats AS other_car_seats,
               t.id AS other_team_id, t.number AS other_number, t.name AS other_name
        FROM plans myp
        JOIN plans op
@@ -496,6 +507,8 @@ export interface AgendaRow {
   visit_date: string;
   city: string;
   part_of_day: string;
+  transport: string | null;
+  car_seats: number | null;
   team_id: number;
   number: string;
   name: string;
@@ -505,7 +518,8 @@ export interface AgendaRow {
 export function getAgenda(from: string): AgendaRow[] {
   return db
     .prepare(
-      `SELECT p.visit_date, p.city, p.part_of_day, t.id AS team_id, t.number, t.name
+      `SELECT p.visit_date, p.city, p.part_of_day, p.transport, p.car_seats,
+              t.id AS team_id, t.number, t.name
        FROM plans p
        JOIN teams t ON t.id = p.team_id
        WHERE p.visit_date >= ?

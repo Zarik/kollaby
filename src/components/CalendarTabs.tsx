@@ -8,11 +8,19 @@ import DateAgenda from "@/components/DateAgenda";
 
 type Tab = "cities" | "dates";
 
+/** Стартовый месяц календаря: текущий, зажатый в границы сезона. */
+export function initialSeasonMonth(): Date {
+  const today = new Date();
+  const start = new Date(SEASON.start + "T00:00:00");
+  const end = new Date(SEASON.end + "T00:00:00");
+  return startOfMonth(today < start ? start : today > end ? end : today);
+}
+
 /** Переключатель видов календаря: «По городам» и «По датам». */
 export default function CalendarTabs({ refreshKey }: { refreshKey: number }) {
   const [tab, setTab] = useState<Tab>("cities");
   const [city, setCity] = useState<string>(CITIES[0]);
-  const [month, setMonth] = useState<Date>(startOfMonth(new Date(SEASON.start + "T00:00:00")));
+  const [month, setMonth] = useState<Date>(initialSeasonMonth());
 
   // Клик по городу в ленте: открыть «По городам» на этом городе И месяце даты.
   function pickCity(c: string, date: string) {

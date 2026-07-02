@@ -14,11 +14,15 @@ import {
 import { CITIES, PARTS_OF_DAY, SEASON, type PartOfDay } from "@/config/game";
 import { jsonFetch } from "@/lib/client";
 import { formatMonthTitle } from "@/lib/date";
+import { transportEmoji, transportLabel } from "@/lib/transport";
+import { initialSeasonMonth } from "@/components/CalendarTabs";
 
 interface CalendarEntry {
   planId: number;
   visitDate: string;
   partOfDay: string;
+  transport: string | null;
+  carSeats: number | null;
   team: { id: number; number: string; name: string };
   isMine: boolean;
 }
@@ -63,7 +67,7 @@ export default function CityCalendar({
   const [cityState, setCityState] = useState<string>(CITIES[0]);
   const city = cityProp ?? cityState;
   const setCity = onCityChange ?? setCityState;
-  const [monthState, setMonthState] = useState<Date>(startOfMonth(seasonStart));
+  const [monthState, setMonthState] = useState<Date>(initialSeasonMonth());
   const month = monthProp ?? monthState;
   const setMonth = onMonthChange ?? setMonthState;
   const [entries, setEntries] = useState<CalendarEntry[]>([]);
@@ -203,19 +207,24 @@ export default function CityCalendar({
                 )}
               </div>
               <div className="mt-0.5 flex flex-wrap gap-0.5">
-                {dayEntries.map((e) => (
-                  <a
-                    key={e.planId}
-                    href={`/team/${e.team.id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`inline-block rounded px-1 text-[10px] font-medium transition-colors ${partChipClass(
-                      e.partOfDay,
-                    )} ${e.isMine ? "ring-1 ring-stone-400" : ""}`}
-                  >
-                    {e.team.number}
-                  </a>
-                ))}
+                {dayEntries.map((e) => {
+                  const tLabel = transportLabel(e.transport, e.carSeats);
+                  return (
+                    <a
+                      key={e.planId}
+                      href={`/team/${e.team.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={`№${e.team.number} «${e.team.name}»${tLabel ? ` — ${tLabel}` : ""}`}
+                      className={`inline-block rounded px-1 text-[10px] font-medium transition-colors ${partChipClass(
+                        e.partOfDay,
+                      )} ${e.isMine ? "ring-1 ring-stone-400" : ""}`}
+                    >
+                      {e.team.number}
+                      {transportEmoji(e.transport)}
+                    </a>
+                  );
+                })}
               </div>
             </div>
           );
@@ -230,6 +239,7 @@ export default function CityCalendar({
             {p.label}
           </span>
         ))}
+        <span className="text-stone-400">· 🚶 пешком · 🚗 на авто (мест — по наведению)</span>
       </div>
     </section>
   );

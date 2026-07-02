@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTeam } from "@/lib/session";
 import { createPlan, getPlansByTeam } from "@/lib/repo";
 import { isCity, isPartOfDay, SEASON } from "@/config/game";
+import { isTransport } from "@/lib/transport";
 import { todayISO } from "@/lib/time";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -43,6 +44,19 @@ export async function POST(request: NextRequest) {
   const visitDate = String(body.visitDate ?? "");
   const partOfDay = String(body.partOfDay ?? "");
   const note = body.note != null ? String(body.note).trim() || null : null;
+  // Транспорт (опционально): 'foot' | 'car'; свободные места — только для 'car'.
+  const transport = isTransport(body.transport) ? body.transport : null;
+  let carSeats: number | null = null;
+  if (transport === "car" && body.carSeats != null && body.carSeats !== "") {
+    const n = Number(body.carSeats);
+    if (!Number.isInteger(n) || n < 0 || n > 20) {
+      return NextResponse.json(
+        { error: "Свободных мест — целое число от 0 до 20" },
+        { status: 400 },
+      );
+    }
+    carSeats = n;
+  }
 
   if (!isCity(city)) return NextResponse.json({ error: "Неизвестный город" }, { status: 400 });
   if (!isValidVisitDate(visitDate))
@@ -53,6 +67,6 @@ export async function POST(request: NextRequest) {
   if (!isPartOfDay(partOfDay))
     return NextResponse.json({ error: "Укажите время суток" }, { status: 400 });
 
-  const plan = createPlan({ teamId: auth.teamId, city, visitDate, partOfDay, note });
+  const plan = createPlan({ teamId: auth.teamId, city, visitDate, partOfDay, note, transport, carSeats });
   return NextResponse.json({ plan }, { status: 201 });
 }

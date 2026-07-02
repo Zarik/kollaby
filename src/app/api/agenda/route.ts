@@ -12,6 +12,8 @@ export async function GET(request: NextRequest) {
     date: r.visit_date,
     city: r.city,
     partOfDay: r.part_of_day,
+    transport: r.transport,
+    carSeats: r.car_seats,
     team: { id: r.team_id, number: r.number, name: r.name, isMine: r.team_id === auth.teamId },
   }));
 

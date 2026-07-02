@@ -5,11 +5,14 @@ import { PARTS_OF_DAY, type PartOfDay } from "@/config/game";
 import { jsonFetch } from "@/lib/client";
 import { formatAgendaDate } from "@/lib/date";
 import { plural } from "@/lib/plural";
+import { transportEmoji, transportLabel } from "@/lib/transport";
 
 interface Entry {
   date: string;
   city: string;
   partOfDay: string;
+  transport: string | null;
+  carSeats: number | null;
   team: { id: number; number: string; name: string; isMine: boolean };
 }
 
@@ -133,20 +136,25 @@ export default function DateAgenda({
                       <span className="text-xs font-normal text-stone-400">{c.teams}</span>
                     </button>
                     <div className="flex flex-wrap gap-1.5">
-                      {c.entries.map((e) => (
-                        <a
-                          key={`${e.team.id}|${e.partOfDay}`}
-                          href={`/team/${e.team.id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs transition-colors hover:bg-stone-50 ${
-                            e.team.isMine ? "border-stone-400" : "border-stone-200"
-                          }`}
-                        >
-                          <span className={`inline-block h-1.5 w-1.5 rounded-full ${partDot(e.partOfDay)}`} />
-                          {e.team.number}
-                        </a>
-                      ))}
+                      {c.entries.map((e) => {
+                        const tLabel = transportLabel(e.transport, e.carSeats);
+                        return (
+                          <a
+                            key={`${e.team.id}|${e.partOfDay}`}
+                            href={`/team/${e.team.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title={`№${e.team.number} «${e.team.name}»${tLabel ? ` — ${tLabel}` : ""}`}
+                            className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs transition-colors hover:bg-stone-50 ${
+                              e.team.isMine ? "border-stone-400" : "border-stone-200"
+                            }`}
+                          >
+                            <span className={`inline-block h-1.5 w-1.5 rounded-full ${partDot(e.partOfDay)}`} />
+                            {e.team.number}
+                            {transportEmoji(e.transport)}
+                          </a>
+                        );
+                      })}
                     </div>
                   </div>
                 ))}
@@ -166,6 +174,7 @@ export default function DateAgenda({
         <span className="inline-flex items-center gap-1">
           <span aria-hidden>🔥</span> пересечение (≥2 команд)
         </span>
+        <span className="text-stone-400">· 🚶 пешком · 🚗 на авто (мест — по наведению)</span>
       </div>
     </section>
   );

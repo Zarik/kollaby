@@ -16,6 +16,8 @@ export async function GET(request: NextRequest) {
     myPart: m.my_part,
     otherPart: m.other_part,
     samePartOfDay: m.my_part === m.other_part,
+    otherTransport: m.other_transport,
+    otherCarSeats: m.other_car_seats,
     team: { id: m.other_team_id, number: m.other_number, name: m.other_name },
   }));
 
