@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { jsonFetch } from "@/lib/client";
 import PasswordInput from "@/components/PasswordInput";
 
-type Mode = "login" | "register";
+type Mode = "login" | "register" | "forgot";
 
 const inputClass =
   "w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-stone-900 " +
@@ -17,6 +17,7 @@ export default function AuthForm() {
   const [mode, setMode] = useState<Mode>("login");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
   // поля
   const [number, setNumber] = useState("");
@@ -38,12 +39,21 @@ export default function AuthForm() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError("");
+    setNotice("");
     if (mode === "register" && password !== passwordConfirm) {
       setError("Пароли не совпадают");
       return;
     }
     setLoading(true);
     try {
+      if (mode === "forgot") {
+        const res = await jsonFetch<{ message: string }>("/api/auth/forgot", {
+          method: "POST",
+          body: JSON.stringify({ number: number.trim() }),
+        });
+        setNotice(res.message);
+        return;
+      }
       if (mode === "login") {
         await jsonFetch("/api/auth/login", {
           method: "POST",
@@ -79,7 +89,7 @@ export default function AuthForm() {
       <div className="mb-5 flex rounded-lg bg-stone-100 p-1 text-sm font-medium">
         <button
           type="button"
-          onClick={() => { setMode("login"); setError(""); }}
+          onClick={() => { setMode("login"); setError(""); setNotice(""); }}
           className={`flex-1 rounded-md px-3 py-2 transition-colors ${
             mode === "login" ? "bg-white text-stone-900 shadow-sm" : "text-stone-500"
           }`}
@@ -88,7 +98,7 @@ export default function AuthForm() {
         </button>
         <button
           type="button"
-          onClick={() => { setMode("register"); setError(""); }}
+          onClick={() => { setMode("register"); setError(""); setNotice(""); }}
           className={`flex-1 rounded-md px-3 py-2 transition-colors ${
             mode === "register" ? "bg-white text-stone-900 shadow-sm" : "text-stone-500"
           }`}
@@ -98,6 +108,12 @@ export default function AuthForm() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-3">
+        {mode === "forgot" && (
+          <p className="text-sm text-stone-500">
+            Укажите номер команды — пришлём на её email ссылку для установки
+            нового пароля.
+          </p>
+        )}
         <div>
           <label className="mb-1 block text-sm font-medium text-stone-700">
             Номер команды
@@ -172,16 +188,27 @@ export default function AuthForm() {
           </>
         )}
 
-        <div>
-          <label className="mb-1 block text-sm font-medium text-stone-700">Пароль</label>
-          <PasswordInput
-            value={password}
-            onChange={setPassword}
-            placeholder={mode === "register" ? "не короче 6 символов" : ""}
-            required
-            autoComplete={mode === "register" ? "new-password" : "current-password"}
-          />
-        </div>
+        {mode !== "forgot" && (
+          <div>
+            <label className="mb-1 block text-sm font-medium text-stone-700">Пароль</label>
+            <PasswordInput
+              value={password}
+              onChange={setPassword}
+              placeholder={mode === "register" ? "не короче 6 символов" : ""}
+              required
+              autoComplete={mode === "register" ? "new-password" : "current-password"}
+            />
+            {mode === "login" && (
+              <button
+                type="button"
+                onClick={() => { setMode("forgot"); setError(""); setNotice(""); }}
+                className="mt-1.5 text-sm text-indigo-600 hover:text-indigo-700 hover:underline"
+              >
+                Забыли пароль?
+              </button>
+            )}
+          </div>
+        )}
 
         {mode === "register" && (
           <div>
@@ -229,6 +256,11 @@ export default function AuthForm() {
             {error}
           </div>
         )}
+        {notice && (
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-700">
+            {notice}
+          </div>
+        )}
 
         <button
           type="submit"
@@ -241,8 +273,19 @@ export default function AuthForm() {
             ? "Подождите…"
             : mode === "login"
               ? "Войти"
-              : "Зарегистрироваться"}
+              : mode === "forgot"
+                ? "Отправить ссылку для сброса"
+                : "Зарегистрироваться"}
         </button>
+        {mode === "forgot" && (
+          <button
+            type="button"
+            onClick={() => { setMode("login"); setError(""); setNotice(""); }}
+            className="w-full text-center text-sm text-stone-500 hover:text-stone-700"
+          >
+            ← Вернуться ко входу
+          </button>
+        )}
       </form>
     </div>
   );

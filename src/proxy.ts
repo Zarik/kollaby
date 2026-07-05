@@ -26,6 +26,11 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Сброс пароля по ссылке из письма — без авторизации
+  if (pathname === "/reset") {
+    return NextResponse.next();
+  }
+
   // Остальные маршруты — требуют авторизации
   if (!token) {
     const loginUrl = new URL("/", request.url);

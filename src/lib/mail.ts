@@ -250,6 +250,60 @@ export async function sendProposalAnswerEmail(
   });
 }
 
+export interface PasswordResetEmailInput {
+  toEmail: string;
+  number: string;
+  name: string;
+  resetUrl: string;
+}
+
+/** Письмо со ссылкой для сброса пароля (действует 1 час, одноразовая). */
+export async function sendPasswordResetEmail(input: PasswordResetEmailInput): Promise<void> {
+  const subject = `«${SERVICE_NAME}»: сброс пароля команды №${input.number}`;
+
+  const text = [
+    `Здравствуйте, команда «${input.name}»!`,
+    "",
+    `Кто-то (надеемся, вы) запросил сброс пароля для команды №${input.number} в сервисе «${SERVICE_NAME}».`,
+    "",
+    "Чтобы задать новый пароль, перейдите по ссылке (действует 1 час):",
+    input.resetUrl,
+    "",
+    "Если вы не запрашивали сброс — просто проигнорируйте это письмо, пароль останется прежним.",
+    "",
+    `— ${SERVICE_NAME}`,
+  ].join("\n");
+
+  const esc = (s: string) =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  const html = `
+    <p>Здравствуйте, команда «${esc(input.name)}»!</p>
+    <p>Кто-то (надеемся, вы) запросил сброс пароля для команды №${esc(input.number)} в сервисе «${SERVICE_NAME}».</p>
+    <p><a href="${input.resetUrl}" style="display:inline-block;background:#4f46e5;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600;">Задать новый пароль</a></p>
+    <p style="color:#78716c;font-size:13px;">Ссылка действует 1 час и одноразовая. Если кнопка не работает, откройте адрес:<br>
+      <a href="${input.resetUrl}">${input.resetUrl}</a></p>
+    <p>Если вы не запрашивали сброс — просто проигнорируйте это письмо, пароль останется прежним.</p>
+    <p>— ${SERVICE_NAME}</p>
+  `.trim();
+
+  const transporter = getTransporter();
+  if (!transporter) {
+    console.info(
+      `[mail] SMTP не настроен — письмо не отправлено.\nКому: ${input.toEmail}\nТема: ${subject}\n\n${text}`,
+    );
+    return;
+  }
+
+  await transporter.sendMail({
+    from: fromAddress(),
+    to: input.toEmail,
+    subject,
+    text,
+    html,
+  });
+}
+
 export interface WelcomeEmailInput {
   toEmail: string;
   number: string;

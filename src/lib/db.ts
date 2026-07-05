@@ -93,6 +93,9 @@ function migrate(db: Database.Database): void {
   ensureColumn(db, "plans", "transport", "ALTER TABLE plans ADD COLUMN transport TEXT");
   ensureColumn(db, "plans", "car_seats", "ALTER TABLE plans ADD COLUMN car_seats INTEGER");
   ensureColumn(db, "plans", "foot_people", "ALTER TABLE plans ADD COLUMN foot_people INTEGER");
+  // Сброс пароля: sha256-хеш одноразового токена + срок действия (ISO)
+  ensureColumn(db, "teams", "reset_token_hash", "ALTER TABLE teams ADD COLUMN reset_token_hash TEXT");
+  ensureColumn(db, "teams", "reset_expires", "ALTER TABLE teams ADD COLUMN reset_expires TEXT");
 }
 
 /** Добавляет колонку, если её ещё нет (ALTER через prepare/run — без многооператорного exec). */

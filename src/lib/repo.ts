@@ -15,6 +15,8 @@ export interface Team {
   telegram: string | null; // username без @
   max_link: string | null; // полная ссылка max.ru
   contacts_consent: number; // 0 | 1
+  reset_token_hash: string | null; // sha256 одноразового токена сброса пароля
+  reset_expires: string | null; // срок действия токена (ISO)
   created_at: string;
 }
 
@@ -136,6 +138,29 @@ export function updateTeamProfile(
     maxLink: input.maxLink ?? null,
     consent: input.consent ? 1 : 0,
   });
+}
+
+/** Сохранить хеш токена сброса пароля и срок его действия. */
+export function setResetToken(teamId: number, tokenHash: string, expiresAt: string): void {
+  db.prepare("UPDATE teams SET reset_token_hash = ?, reset_expires = ? WHERE id = ?").run(
+    tokenHash,
+    expiresAt,
+    teamId,
+  );
+}
+
+/** Команда по действующему (не протухшему) токену сброса. */
+export function getTeamByResetTokenHash(tokenHash: string): Team | undefined {
+  return db
+    .prepare("SELECT * FROM teams WHERE reset_token_hash = ? AND reset_expires > ?")
+    .get(tokenHash, nowISO()) as Team | undefined;
+}
+
+/** Погасить токен сброса (после использования). */
+export function clearResetToken(teamId: number): void {
+  db.prepare("UPDATE teams SET reset_token_hash = NULL, reset_expires = NULL WHERE id = ?").run(
+    teamId,
+  );
 }
 
 export function updateTeamPassword(id: number, passwordHash: string): void {
