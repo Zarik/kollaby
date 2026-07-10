@@ -574,11 +574,13 @@ export interface DashboardStats {
   proposalsAccepted: number;
   proposalsDeclined: number;
   proposalsPending: number;
-  // Разбивка предложений на прошедшие (visit_date < сегодня) и будущие — по статусам.
-  proposalsSplit: {
-    total: { passed: number; upcoming: number };
+  // Команды по статусам предложений (учтены обе стороны — отправитель и адресат).
+  // upcoming — у команды есть предложение этого статуса на сегодня/будущее,
+  // passed — все её предложения этого статуса уже прошли по датам.
+  proposalTeams: {
+    any: { passed: number; upcoming: number }; // участвуют хоть в одном предложении
     accepted: { passed: number; upcoming: number };
-    proposed: { passed: number; upcoming: number };
+    pending: { passed: number; upcoming: number };
     declined: { passed: number; upcoming: number };
   };
   presenceActive: number; // команд отмечено «Я здесь» прямо сейчас
@@ -621,23 +623,27 @@ export function getDashboardStats(): DashboardStats {
     t.getDate(),
   ).padStart(2, "0")}`;
 
-  // Предложения коллабораций: прошедшие (дата визита уже была) и будущие, по статусам.
-  const propSplitRows = db
-    .prepare(
-      `SELECT status,
-         SUM(CASE WHEN visit_date < ? THEN 1 ELSE 0 END) AS passed,
-         SUM(CASE WHEN visit_date >= ? THEN 1 ELSE 0 END) AS upcoming
-       FROM collab_proposals GROUP BY status`,
-    )
-    .all(today, today) as { status: string; passed: number; upcoming: number }[];
-  const splitOf = (s: string) => {
-    const r = propSplitRows.find((x) => x.status === s);
-    return { passed: r?.passed ?? 0, upcoming: r?.upcoming ?? 0 };
+  // Команды по статусам предложений: обе стороны (from/to), каждая команда — один раз.
+  // upcoming — есть предложение этого статуса с датой сегодня/позже; иначе passed.
+  const teamSplit = (status?: string): { passed: number; upcoming: number } => {
+    const cond = status ? "WHERE status = ?" : "";
+    const params = status ? [today, status, status] : [today];
+    const row = db
+      .prepare(
+        `SELECT COALESCE(SUM(1 - has_up), 0) AS passed, COALESCE(SUM(has_up), 0) AS upcoming
+         FROM (
+           SELECT t, MAX(CASE WHEN visit_date >= ? THEN 1 ELSE 0 END) AS has_up
+           FROM (
+             SELECT from_team_id AS t, visit_date FROM collab_proposals ${cond}
+             UNION ALL
+             SELECT to_team_id AS t, visit_date FROM collab_proposals ${cond}
+           )
+           GROUP BY t
+         )`,
+      )
+      .get(...params) as { passed: number; upcoming: number };
+    return { passed: row.passed, upcoming: row.upcoming };
   };
-  const splitTotal = propSplitRows.reduce(
-    (a, r) => ({ passed: a.passed + r.passed, upcoming: a.upcoming + r.upcoming }),
-    { passed: 0, upcoming: 0 },
-  );
 
   // Визиты по городам: запланировано, прошло (дата в прошлом), реально были (>1ч).
   const plannedRows = db
@@ -698,11 +704,11 @@ export function getDashboardStats(): DashboardStats {
     proposalsAccepted: statusCount("accepted"),
     proposalsDeclined: statusCount("declined"),
     proposalsPending: statusCount("proposed"),
-    proposalsSplit: {
-      total: splitTotal,
-      accepted: splitOf("accepted"),
-      proposed: splitOf("proposed"),
-      declined: splitOf("declined"),
+    proposalTeams: {
+      any: teamSplit(),
+      accepted: teamSplit("accepted"),
+      pending: teamSplit("proposed"),
+      declined: teamSplit("declined"),
     },
     presenceActive: scalar(`SELECT COUNT(*) AS n FROM presence WHERE expires_at > ?`, now),
     confirmedVisits: scalar(`SELECT COUNT(*) AS n FROM presence_log WHERE duration_min > 10`),

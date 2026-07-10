@@ -157,14 +157,15 @@ export default function DashboardPage() {
   // План vs факт
   const pvfPct = s.passedPlans > 0 ? Math.round((s.confirmedPlans / s.passedPlans) * 100) : 0;
 
-  // Воронка коллабораций — с разбивкой «прошло / впереди» по дате визита.
+  // Коллаборации в командах (как «Путь к коллаборации») — с разбивкой «прошло / впереди».
   const funnel = [
-    { label: "Предложено", split: s.proposalsSplit.total, color: "bg-indigo-500" },
-    { label: "Согласовано", split: s.proposalsSplit.accepted, color: "bg-emerald-500" },
-    { label: "Ожидает", split: s.proposalsSplit.proposed, color: "bg-amber-500" },
-    { label: "Отклонено", split: s.proposalsSplit.declined, color: "bg-stone-400" },
+    { label: "Участвуют в предложениях", split: s.proposalTeams.any, color: "bg-indigo-500" },
+    { label: "Договорились", split: s.proposalTeams.accepted, color: "bg-emerald-500" },
+    { label: "Ждут ответа", split: s.proposalTeams.pending, color: "bg-amber-500" },
+    { label: "Получили отказ", split: s.proposalTeams.declined, color: "bg-stone-400" },
   ];
   const funnelMax = Math.max(1, ...funnel.map((f) => f.split.passed + f.split.upcoming));
+  const proposalTeamsAny = s.proposalTeams.any.passed + s.proposalTeams.any.upcoming;
 
   return (
     <div className="space-y-6">
@@ -191,9 +192,8 @@ export default function DashboardPage() {
           accent="text-sky-600"
         />
         <StatCard
-          value={s.proposalsAccepted}
-          label="Коллабораций согласовано"
-          hint={`из ${s.proposalsTotal} предложенных`}
+          value={s.funnel.collaborated}
+          label="Команд договорились о коллабе"
           accent="text-emerald-600"
         />
       </div>
@@ -359,9 +359,14 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Коллаборации */}
+        {/* Коллаборации (в командах) */}
         <section className={card}>
-          <h2 className="mb-4 text-base font-semibold text-stone-900">Коллаборации</h2>
+          <h2 className="mb-1 text-base font-semibold text-stone-900">Коллаборации</h2>
+          <p className="mb-4 text-xs text-stone-400">
+            Сколько команд на каждом статусе (всего в предложениях: {proposalTeamsAny}).
+            Команда может быть в нескольких строках — например, договорилась об одной
+            коллабе и ждёт ответа по другой.
+          </p>
           {s.proposalsTotal === 0 ? (
             <p className="text-sm text-stone-400">
               Предложений пока не было. Они появляются, когда команды договариваются о встрече.
@@ -373,7 +378,7 @@ export default function DashboardPage() {
                   const total = f.split.passed + f.split.upcoming;
                   return (
                     <li key={f.label} className="flex items-center gap-3 text-sm">
-                      <span className="w-28 shrink-0 text-stone-600">{f.label}</span>
+                      <span className="w-44 shrink-0 text-stone-600">{f.label}</span>
                       <div className="flex h-5 flex-1 overflow-hidden rounded bg-stone-100">
                         <div
                           className="h-full bg-stone-300"
@@ -393,10 +398,10 @@ export default function DashboardPage() {
               </ul>
               <div className="mt-3 flex items-center gap-4 text-xs text-stone-500">
                 <span className="flex items-center gap-1.5">
-                  <span className="inline-block h-3 w-3 rounded bg-stone-300" /> дата прошла
+                  <span className="inline-block h-3 w-3 rounded bg-stone-300" /> все даты прошли
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="inline-block h-3 w-3 rounded bg-indigo-500" /> впереди (цвет статуса)
+                  <span className="inline-block h-3 w-3 rounded bg-indigo-500" /> есть предстоящие (цвет статуса)
                 </span>
               </div>
             </>
