@@ -645,16 +645,24 @@ export function getDashboardStats(): DashboardStats {
     return { passed: row.passed, upcoming: row.upcoming };
   };
 
-  // Визиты по городам: запланировано, прошло (дата в прошлом), реально были (>1ч).
+  // Визиты по городам. Единица везде — «команда в городе в день»:
+  // несколько заявок одной команды на разные времена суток = один визит,
+  // несколько сессий «Я здесь» за день = один реальный визит.
   const plannedRows = db
-    .prepare(`SELECT city, COUNT(*) AS n FROM plans GROUP BY city`)
+    .prepare(
+      `SELECT city, COUNT(DISTINCT team_id || '|' || visit_date) AS n FROM plans GROUP BY city`,
+    )
     .all() as { city: string; n: number }[];
   const passedRows = db
-    .prepare(`SELECT city, COUNT(*) AS n FROM plans WHERE visit_date < ? GROUP BY city`)
+    .prepare(
+      `SELECT city, COUNT(DISTINCT team_id || '|' || visit_date) AS n
+       FROM plans WHERE visit_date < ? GROUP BY city`,
+    )
     .all(today) as { city: string; n: number }[];
   const confirmedRows = db
     .prepare(
-      `SELECT city, COUNT(*) AS n FROM presence_log WHERE duration_min > 10 GROUP BY city`,
+      `SELECT city, COUNT(DISTINCT team_id || '|' || substr(datetime(checked_in_at, '+3 hours'), 1, 10)) AS n
+       FROM presence_log WHERE duration_min > 10 GROUP BY city`,
     )
     .all() as { city: string; n: number }[];
 
@@ -680,7 +688,10 @@ export function getDashboardStats(): DashboardStats {
 
   return {
     teams: scalar(`SELECT COUNT(*) AS n FROM teams`),
-    plans: scalar(`SELECT COUNT(*) AS n FROM plans`),
+    // Визит = команда в городе в день (времена суток не плодят визиты).
+    plans: scalar(
+      `SELECT COUNT(*) AS n FROM (SELECT DISTINCT team_id, city, visit_date FROM plans)`,
+    ),
     teamsWithPlans: scalar(`SELECT COUNT(DISTINCT team_id) AS n FROM plans`),
     citiesCovered: scalar(`SELECT COUNT(DISTINCT city) AS n FROM plans`),
     daysCovered: scalar(`SELECT COUNT(DISTINCT visit_date) AS n FROM plans`),
@@ -711,7 +722,13 @@ export function getDashboardStats(): DashboardStats {
       declined: teamSplit("declined"),
     },
     presenceActive: scalar(`SELECT COUNT(*) AS n FROM presence WHERE expires_at > ?`, now),
-    confirmedVisits: scalar(`SELECT COUNT(*) AS n FROM presence_log WHERE duration_min > 10`),
+    // Реальный визит = команда в городе в день (по МСК); повторные сессии не в счёт.
+    confirmedVisits: scalar(
+      `SELECT COUNT(*) AS n FROM (
+         SELECT DISTINCT team_id, city, substr(datetime(checked_in_at, '+3 hours'), 1, 10)
+         FROM presence_log WHERE duration_min > 10
+       )`,
+    ),
     byCity,
     presenceByCity,
     funnel: {
@@ -731,22 +748,33 @@ export function getDashboardStats(): DashboardStats {
            UNION SELECT to_team_id FROM collab_proposals WHERE status = 'accepted')`,
       ),
     },
-    passedPlans: scalar(`SELECT COUNT(*) AS n FROM plans WHERE visit_date < ?`, today),
+    // Прошедшие планы — тоже в визитах «команда-город-день».
+    passedPlans: scalar(
+      `SELECT COUNT(*) AS n FROM (
+         SELECT DISTINCT team_id, city, visit_date FROM plans WHERE visit_date < ?
+       )`,
+      today,
+    ),
     confirmedPlans: scalar(
       // Смягчённое совпадение: команда была в этом городе в окне ±1 день от даты
       // заявки. checked_in_at хранится в UTC — приводим к МСК (+3, часовой пояс игры).
-      `SELECT COUNT(*) AS n FROM plans p
-       WHERE p.visit_date < ?
-         AND EXISTS (
-           SELECT 1 FROM presence_log pl
-           WHERE pl.team_id = p.team_id AND pl.city = p.city
-             AND date(datetime(pl.checked_in_at, '+3 hours'))
-                 BETWEEN date(p.visit_date, '-1 day') AND date(p.visit_date, '+1 day')
-             AND pl.duration_min > 10)`,
+      `SELECT COUNT(*) AS n FROM (
+         SELECT DISTINCT team_id, city, visit_date FROM plans WHERE visit_date < ?
+       ) p
+       WHERE EXISTS (
+         SELECT 1 FROM presence_log pl
+         WHERE pl.team_id = p.team_id AND pl.city = p.city
+           AND date(datetime(pl.checked_in_at, '+3 hours'))
+               BETWEEN date(p.visit_date, '-1 day') AND date(p.visit_date, '+1 day')
+           AND pl.duration_min > 10)`,
       today,
     ),
     visitsByDate: db
-      .prepare(`SELECT visit_date AS date, COUNT(*) AS n FROM plans GROUP BY visit_date ORDER BY visit_date`)
+      .prepare(
+        // Визиты в день: команда-город (времена суток не считаются отдельно).
+        `SELECT visit_date AS date, COUNT(DISTINCT team_id || '|' || city) AS n
+         FROM plans GROUP BY visit_date ORDER BY visit_date`,
+      )
       .all() as { date: string; n: number }[],
     regsByDate: db
       .prepare(
@@ -755,9 +783,10 @@ export function getDashboardStats(): DashboardStats {
       .all() as { date: string; n: number }[],
     realByDate: db
       .prepare(
-        // Дата визита — по МСК (+3, часовой пояс игры), а не UTC: иначе
-        // ночные отметки (00:00–03:00 МСК) уезжают на предыдущий день.
-        `SELECT substr(datetime(checked_in_at, '+3 hours'), 1, 10) AS date, COUNT(*) AS n
+        // Дата визита — по МСК (+3, часовой пояс игры), а не UTC: иначе ночные
+        // отметки уезжают на предыдущий день. Команда-город в день — один визит.
+        `SELECT substr(datetime(checked_in_at, '+3 hours'), 1, 10) AS date,
+                COUNT(DISTINCT team_id || '|' || city) AS n
          FROM presence_log WHERE duration_min > 10 GROUP BY date ORDER BY date`,
       )
       .all() as { date: string; n: number }[],

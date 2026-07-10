@@ -260,7 +260,7 @@ export default function DashboardPage() {
             </span>
           </div>
           <p className="mb-4 text-xs text-stone-400">
-            Заявки команд по городам{passedTotal > 0 ? ` · из них прошло ${passedTotal}` : ""}.
+            Визиты команд по городам{passedTotal > 0 ? ` · из них прошло ${passedTotal}` : ""}.
           </p>
           {s.plans === 0 ? (
             <p className="text-sm text-stone-400">Пока нет заявок.</p>
