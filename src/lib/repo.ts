@@ -568,7 +568,8 @@ export interface DashboardStats {
   teamsWithPlans: number;
   citiesCovered: number;
   daysCovered: number;
-  matchPairs: number; // уникальные пары команд, чьи планы пересеклись (город+дата)
+  matchPairs: number; // уникальные пары команд, чьи планы пересеклись (город+дата), за весь сезон
+  matchPairsUpcoming: number; // из них — по датам с сегодняшнего дня
   proposalsTotal: number;
   proposalsAccepted: number;
   proposalsDeclined: number;
@@ -684,6 +685,15 @@ export function getDashboardStats(): DashboardStats {
            ON a.city = b.city AND a.visit_date = b.visit_date AND a.team_id < b.team_id
        )`,
     ),
+    matchPairsUpcoming: scalar(
+      `SELECT COUNT(*) AS n FROM (
+         SELECT DISTINCT a.team_id AS t1, b.team_id AS t2
+         FROM plans a JOIN plans b
+           ON a.city = b.city AND a.visit_date = b.visit_date AND a.team_id < b.team_id
+         WHERE a.visit_date >= ?
+       )`,
+      today,
+    ),
     proposalsTotal: byStatus.reduce((s, r) => s + r.n, 0),
     proposalsAccepted: statusCount("accepted"),
     proposalsDeclined: statusCount("declined"),
@@ -718,13 +728,13 @@ export function getDashboardStats(): DashboardStats {
     passedPlans: scalar(`SELECT COUNT(*) AS n FROM plans WHERE visit_date < ?`, today),
     confirmedPlans: scalar(
       // Смягчённое совпадение: команда была в этом городе в окне ±1 день от даты
-      // заявки (поглощает разницу UTC/локали и мелкий перенос визита).
+      // заявки. checked_in_at хранится в UTC — приводим к МСК (+3, часовой пояс игры).
       `SELECT COUNT(*) AS n FROM plans p
        WHERE p.visit_date < ?
          AND EXISTS (
            SELECT 1 FROM presence_log pl
            WHERE pl.team_id = p.team_id AND pl.city = p.city
-             AND date(substr(pl.checked_in_at, 1, 10))
+             AND date(datetime(pl.checked_in_at, '+3 hours'))
                  BETWEEN date(p.visit_date, '-1 day') AND date(p.visit_date, '+1 day')
              AND pl.duration_min > 10)`,
       today,
@@ -739,7 +749,9 @@ export function getDashboardStats(): DashboardStats {
       .all() as { date: string; n: number }[],
     realByDate: db
       .prepare(
-        `SELECT substr(checked_in_at, 1, 10) AS date, COUNT(*) AS n
+        // Дата визита — по МСК (+3, часовой пояс игры), а не UTC: иначе
+        // ночные отметки (00:00–03:00 МСК) уезжают на предыдущий день.
+        `SELECT substr(datetime(checked_in_at, '+3 hours'), 1, 10) AS date, COUNT(*) AS n
          FROM presence_log WHERE duration_min > 10 GROUP BY date ORDER BY date`,
       )
       .all() as { date: string; n: number }[],

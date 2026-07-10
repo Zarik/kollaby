@@ -141,6 +141,9 @@ export default function DashboardPage() {
     visitsSeries.push(visitsMap.get(d) ?? 0);
     realSeries.push(realMap.get(d) ?? 0);
   }
+  // Подписи «за сезон» = сумма того, что реально на графике (даты вне шкалы не в счёт).
+  const visitsOnChart = visitsSeries.reduce((a, b) => a + b, 0);
+  const realOnChart = realSeries.reduce((a, b) => a + b, 0);
 
   // Воронка вовлечения
   const reach = [
@@ -184,7 +187,7 @@ export default function DashboardPage() {
         <StatCard
           value={s.matchPairs}
           label="Пар команд пересеклось"
-          hint="в одном городе в один день"
+          hint={`за весь сезон · впереди: ${s.matchPairsUpcoming}`}
           accent="text-sky-600"
         />
         <StatCard
@@ -210,7 +213,7 @@ export default function DashboardPage() {
           <div>
             <div className="mb-1 flex items-baseline justify-between text-sm">
               <span className="font-medium text-stone-700">Заявки по датам</span>
-              <span className="text-xs text-stone-400">всего {s.plans}</span>
+              <span className="text-xs text-stone-400">за сезон {visitsOnChart}</span>
             </div>
             <Sparkline
               values={visitsSeries}
@@ -228,7 +231,7 @@ export default function DashboardPage() {
           <div>
             <div className="mb-1 flex items-baseline justify-between text-sm">
               <span className="font-medium text-stone-700">Реальные визиты</span>
-              <span className="text-xs text-stone-400">всего {s.confirmedVisits}</span>
+              <span className="text-xs text-stone-400">за сезон {realOnChart}</span>
             </div>
             <Sparkline
               values={realSeries}
