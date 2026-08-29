@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
       checkedInAt: string;
     }>
   >();
-  for (const city of CITIES) byCity.set(city, []);
+  for (const c of CITIES) byCity.set(c.name, []);
 
   for (const r of rows) {
     const shared = r.contacts_consent === 1;
@@ -43,6 +43,10 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const cities = CITIES.map((city) => ({ city, teams: byCity.get(city) ?? [] }));
+  const cities = CITIES.map((c) => ({
+    city: c.name,
+    active: c.active,
+    teams: byCity.get(c.name) ?? [],
+  }));
   return NextResponse.json({ cities });
 }

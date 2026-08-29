@@ -9,7 +9,7 @@ import {
   hasPlan,
   type ProposalView,
 } from "@/lib/repo";
-import { isCity } from "@/config/game";
+import { isActiveCity } from "@/config/game";
 import { sendProposalEmail } from "@/lib/mail";
 import { todayISO } from "@/lib/time";
 
@@ -72,8 +72,11 @@ export async function POST(request: NextRequest) {
   if (!Number.isInteger(toTeamId) || toTeamId === auth.teamId) {
     return NextResponse.json({ error: "Некорректная команда-адресат" }, { status: 400 });
   }
-  if (!isCity(city)) {
-    return NextResponse.json({ error: "Неизвестный город" }, { status: 400 });
+  if (!isActiveCity(city)) {
+    return NextResponse.json(
+      { error: "В этом городе коллаборации больше не создаются" },
+      { status: 400 },
+    );
   }
 
   const recipient = getTeamById(toTeamId);

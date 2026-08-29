@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTeam } from "@/lib/session";
 import { createPlan, getPlansByTeam } from "@/lib/repo";
-import { isCity, isPartOfDay, SEASON } from "@/config/game";
+import { isActiveCity, isPartOfDay, SEASON } from "@/config/game";
 import { isTransport } from "@/lib/transport";
 import { todayISO } from "@/lib/time";
 
@@ -70,7 +70,11 @@ export async function POST(request: NextRequest) {
     footPeople = n;
   }
 
-  if (!isCity(city)) return NextResponse.json({ error: "Неизвестный город" }, { status: 400 });
+  if (!isActiveCity(city))
+    return NextResponse.json(
+      { error: "Этот город закрыт для новых заявок" },
+      { status: 400 },
+    );
   if (!isValidVisitDate(visitDate))
     return NextResponse.json(
       { error: `Выберите дату в пределах ${minVisitDate()} — ${SEASON.end} (прошедшие даты недоступны)` },

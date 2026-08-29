@@ -9,9 +9,11 @@ import {
   type FormEvent,
 } from "react";
 import {
+  ACTIVE_CITY_NAMES,
   CITIES,
   PARTS_OF_DAY,
   SEASON,
+  isActiveCity,
   partOfDayLabel,
   type PartOfDay,
 } from "@/config/game";
@@ -108,7 +110,7 @@ export default function PlanningView() {
   const formRef = useRef<HTMLFormElement>(null);
 
   // форма заявки
-  const [city, setCity] = useState<string>(CITIES[0]);
+  const [city, setCity] = useState<string>(ACTIVE_CITY_NAMES[0]);
   const [date, setDate] = useState("");
   const [part, setPart] = useState<PartOfDay>(PARTS_OF_DAY[0].id);
   const [note, setNote] = useState("");
@@ -266,7 +268,7 @@ export default function PlanningView() {
   }
 
   function pickHotSlot(slot: HotSlot) {
-    setCity(slot.city);
+    if (isActiveCity(slot.city)) setCity(slot.city);
     setDate(slot.visitDate);
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   }
@@ -509,8 +511,14 @@ export default function PlanningView() {
               className="rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
             >
               {CITIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
+                <option
+                  key={c.name}
+                  value={c.name}
+                  disabled={!c.active}
+                  className={c.active ? undefined : "text-stone-400"}
+                >
+                  {c.name}
+                  {c.active ? "" : " — закрыт"}
                 </option>
               ))}
             </select>
@@ -587,9 +595,18 @@ export default function PlanningView() {
                 key={p.id}
                 className="flex items-center justify-between gap-2 py-2 text-sm"
               >
-                <span className="text-stone-700">
-                  <span className="font-medium text-stone-900">{p.city}</span> ·{" "}
-                  {formatVisitDate(p.visit_date)} · {partOfDayLabel(p.part_of_day as PartOfDay)}
+                <span className={isActiveCity(p.city) ? "text-stone-700" : "text-stone-400"}>
+                  <span
+                    className={
+                      isActiveCity(p.city)
+                        ? "font-medium text-stone-900"
+                        : "font-medium text-stone-400"
+                    }
+                  >
+                    {p.city}
+                  </span>{" "}
+                  · {formatVisitDate(p.visit_date)} ·{" "}
+                  {partOfDayLabel(p.part_of_day as PartOfDay)}
                   {p.transport && (
                     <span className="text-stone-500">
                       {" "}
@@ -599,12 +616,14 @@ export default function PlanningView() {
                   )}
                   {p.note && <span className="text-stone-400"> — {p.note}</span>}
                 </span>
-                <button
-                  onClick={() => removePlan(p.id)}
-                  className="rounded-md px-2 py-1 text-xs text-stone-400 hover:bg-stone-100 hover:text-red-600"
-                >
-                  Удалить
-                </button>
+                {isActiveCity(p.city) && (
+                  <button
+                    onClick={() => removePlan(p.id)}
+                    className="rounded-md px-2 py-1 text-xs text-stone-400 hover:bg-stone-100 hover:text-red-600"
+                  >
+                    Удалить
+                  </button>
+                )}
               </li>
             ))}
           </ul>

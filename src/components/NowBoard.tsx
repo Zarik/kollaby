@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CITIES } from "@/config/game";
+import { ACTIVE_CITY_NAMES, CITIES } from "@/config/game";
 import { jsonFetch } from "@/lib/client";
 import { plural } from "@/lib/plural";
 import Contacts from "@/components/Contacts";
@@ -21,6 +21,7 @@ interface NowTeam {
 }
 interface CityBlock {
   city: string;
+  active: boolean;
   teams: NowTeam[];
 }
 
@@ -29,7 +30,7 @@ const card = "rounded-2xl border border-stone-200 bg-white p-4 shadow-sm";
 export default function NowBoard() {
   const [cities, setCities] = useState<CityBlock[]>([]);
   const [myCity, setMyCity] = useState<string | null>(null);
-  const [selectCity, setSelectCity] = useState<string>(CITIES[0]);
+  const [selectCity, setSelectCity] = useState<string>(ACTIVE_CITY_NAMES[0]);
   const [revealed, setRevealed] = useState<Set<number>>(new Set());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -121,8 +122,14 @@ export default function NowBoard() {
               className="rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
             >
               {CITIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
+                <option
+                  key={c.name}
+                  value={c.name}
+                  disabled={!c.active}
+                  className={c.active ? undefined : "text-stone-400"}
+                >
+                  {c.name}
+                  {c.active ? "" : " — закрыт"}
                 </option>
               ))}
             </select>
@@ -145,9 +152,19 @@ export default function NowBoard() {
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {cities.map((block) => (
-          <section key={block.city} className={card}>
+          <section
+            key={block.city}
+            className={`${card} ${block.active ? "" : "bg-stone-50"}`}
+          >
             <div className="mb-2 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-stone-900">{block.city}</h2>
+              <h2
+                className={`text-sm font-semibold ${
+                  block.active ? "text-stone-900" : "text-stone-400"
+                }`}
+              >
+                {block.city}
+                {block.active ? "" : " · закрыт"}
+              </h2>
               <span className="text-xs text-stone-400">
                 {block.teams.length === 0
                   ? "пусто"
@@ -159,7 +176,9 @@ export default function NowBoard() {
               </span>
             </div>
             {block.teams.length === 0 ? (
-              <p className="text-sm text-stone-400">Сейчас никого.</p>
+              <p className="text-sm text-stone-400">
+                {block.active ? "Сейчас никого." : "Город закрыт для отметок."}
+              </p>
             ) : (
               <ul className="space-y-1.5">
                 {block.teams.map((t) => (

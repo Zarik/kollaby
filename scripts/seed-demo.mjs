@@ -46,6 +46,20 @@ for (let i = 0; i < ids.length; i++) {
 const slotCity = "Веребье", slotDate = "2026-06-12";
 for (const tid of [ids[1], ids[3], ids[5]]) insPlan.run(tid, slotCity, slotDate, "day", now);
 
+// финал — активные локации, сентябрь (для проверки формы/календаря/матчей)
+const finalPlans = [
+  ["Москва: «Депо. Три вокзала»", "2026-09-13", "day"],
+  ["Москва: «Депо. Три вокзала»", "2026-09-13", "evening"],
+  ["Москва: «Депо. Три вокзала»", "2026-09-14", "day"],
+  ["Санкт-Петербург: место в разработке", "2026-09-20", "day"],
+  ["Санкт-Петербург: место в разработке", "2026-09-20", "morning"],
+];
+for (let i = 0; i < ids.length; i++) {
+  const [city, date, part] = finalPlans[i % finalPlans.length];
+  insPlan.run(ids[i], city, date, part, now);
+  p++;
+}
+
 // предложения коллабораций
 const insProp = db.prepare(
   `INSERT INTO collab_proposals (from_team_id, to_team_id, city, visit_date, part_of_day, message, status, created_at)

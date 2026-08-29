@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTeam } from "@/lib/session";
 import { checkIn, checkOut, getMyPresence } from "@/lib/repo";
-import { isCity } from "@/config/game";
+import { isActiveCity } from "@/config/game";
 import { endOfDayISO } from "@/lib/time";
 
 export async function GET(request: NextRequest) {
@@ -24,8 +24,11 @@ export async function POST(request: NextRequest) {
   }
 
   const city = String(body.city ?? "");
-  if (!isCity(city)) {
-    return NextResponse.json({ error: "Неизвестный город" }, { status: 400 });
+  if (!isActiveCity(city)) {
+    return NextResponse.json(
+      { error: "Этот город закрыт для отметок" },
+      { status: 400 },
+    );
   }
 
   checkIn(auth.teamId, city, endOfDayISO());

@@ -42,7 +42,7 @@ function CityBars({
   rows,
   color,
 }: {
-  rows: { city: string; value: number }[];
+  rows: { city: string; value: number; active?: boolean }[];
   color: string;
 }) {
   const max = Math.max(1, ...rows.map((r) => r.value));
@@ -50,7 +50,13 @@ function CityBars({
     <ul className="space-y-2.5">
       {rows.map((r) => (
         <li key={r.city} className="flex items-center gap-3 text-sm">
-          <span className="w-28 shrink-0 truncate text-stone-600">{r.city}</span>
+          <span
+            className={`w-28 shrink-0 truncate ${
+              r.active === false ? "text-stone-400" : "text-stone-600"
+            }`}
+          >
+            {r.city}
+          </span>
           <div className="h-5 flex-1 overflow-hidden rounded bg-stone-100">
             <div
               className={`h-full rounded ${color}`}
@@ -70,14 +76,20 @@ function CityBars({
 function PlannedBars({
   rows,
 }: {
-  rows: { city: string; passed: number; upcoming: number }[];
+  rows: { city: string; passed: number; upcoming: number; active?: boolean }[];
 }) {
   const max = Math.max(1, ...rows.map((r) => r.passed + r.upcoming));
   return (
     <ul className="space-y-2.5">
       {rows.map((r) => (
         <li key={r.city} className="flex items-center gap-3 text-sm">
-          <span className="w-28 shrink-0 truncate text-stone-600">{r.city}</span>
+          <span
+            className={`w-28 shrink-0 truncate ${
+              r.active === false ? "text-stone-400" : "text-stone-600"
+            }`}
+          >
+            {r.city}
+          </span>
           <div className="flex h-5 flex-1 overflow-hidden rounded bg-stone-100">
             <div
               className="h-full bg-stone-400"
@@ -100,23 +112,26 @@ function PlannedBars({
 export default function DashboardPage() {
   const s = getDashboardStats();
 
-  // Визиты по всем 8 городам (включая нулевые) — полная картина.
+  // Визиты по всем локациям сезона (включая нулевые) — полная картина.
   const cityByName = new Map(s.byCity.map((c) => [c.city, c]));
-  const cityRows = CITIES.map((city) => ({
-    city,
-    planned: cityByName.get(city)?.planned ?? 0,
-    passed: cityByName.get(city)?.passed ?? 0,
-    confirmed: cityByName.get(city)?.confirmed ?? 0,
+  const cityRows = CITIES.map((c) => ({
+    city: c.name,
+    active: c.active,
+    planned: cityByName.get(c.name)?.planned ?? 0,
+    passed: cityByName.get(c.name)?.passed ?? 0,
+    confirmed: cityByName.get(c.name)?.confirmed ?? 0,
   })).sort((a, b) => b.planned - a.planned || b.confirmed - a.confirmed);
 
   const plannedRows = cityRows.map((r) => ({
     city: r.city,
+    active: r.active,
     passed: r.passed,
     upcoming: Math.max(0, r.planned - r.passed),
   }));
-  const realRows = CITIES.map((city) => ({
-    city,
-    value: cityByName.get(city)?.confirmed ?? 0,
+  const realRows = CITIES.map((c) => ({
+    city: c.name,
+    active: c.active,
+    value: cityByName.get(c.name)?.confirmed ?? 0,
   })).sort((a, b) => b.value - a.value || a.city.localeCompare(b.city));
   const passedTotal = cityRows.reduce((sum, r) => sum + r.passed, 0);
 
@@ -418,14 +433,16 @@ export default function DashboardPage() {
             <p className="text-sm text-stone-400">Сейчас никто не отмечен.</p>
           ) : (
             <ul className="grid grid-cols-2 gap-2">
-              {CITIES.filter((c) => (presenceByCity.get(c) ?? 0) > 0).map((c) => (
+              {CITIES.filter((c) => (presenceByCity.get(c.name) ?? 0) > 0).map((c) => (
                 <li
-                  key={c}
+                  key={c.name}
                   className="flex items-center justify-between rounded-lg border border-stone-100 bg-stone-50 px-3 py-1.5 text-sm"
                 >
-                  <span className="text-stone-600">{c}</span>
+                  <span className={c.active ? "text-stone-600" : "text-stone-400"}>
+                    {c.name}
+                  </span>
                   <span className="tabular-nums font-medium text-emerald-600">
-                    {presenceByCity.get(c)}
+                    {presenceByCity.get(c.name)}
                   </span>
                 </li>
               ))}

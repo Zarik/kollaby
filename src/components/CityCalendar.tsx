@@ -11,7 +11,13 @@ import {
   isAfter,
   isBefore,
 } from "date-fns";
-import { CITIES, PARTS_OF_DAY, SEASON, type PartOfDay } from "@/config/game";
+import {
+  ACTIVE_CITY_NAMES,
+  CITIES,
+  PARTS_OF_DAY,
+  SEASON,
+  type PartOfDay,
+} from "@/config/game";
 import { jsonFetch } from "@/lib/client";
 import { formatMonthTitle } from "@/lib/date";
 import { transportEmoji, transportLabel } from "@/lib/transport";
@@ -65,7 +71,7 @@ export default function CityCalendar({
   month?: Date;
   onMonthChange?: (month: Date) => void;
 }) {
-  const [cityState, setCityState] = useState<string>(CITIES[0]);
+  const [cityState, setCityState] = useState<string>(ACTIVE_CITY_NAMES[0]);
   const city = cityProp ?? cityState;
   const setCity = onCityChange ?? setCityState;
   const [monthState, setMonthState] = useState<Date>(initialSeasonMonth());
@@ -142,8 +148,13 @@ export default function CityCalendar({
           className="rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none"
         >
           {CITIES.map((c) => (
-            <option key={c} value={c}>
-              {c}
+            <option
+              key={c.name}
+              value={c.name}
+              className={c.active ? undefined : "text-stone-400"}
+            >
+              {c.name}
+              {c.active ? "" : " (архив)"}
             </option>
           ))}
         </select>

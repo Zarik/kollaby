@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { PARTS_OF_DAY, type PartOfDay } from "@/config/game";
+import { PARTS_OF_DAY, cityActive, type PartOfDay } from "@/config/game";
 import { jsonFetch } from "@/lib/client";
 import { formatAgendaDate } from "@/lib/date";
 import { plural } from "@/lib/plural";
@@ -130,7 +130,9 @@ export default function DateAgenda({
                     <button
                       onClick={() => onPickCity(c.city, d.date)}
                       title="Открыть город в календаре"
-                      className="flex w-32 shrink-0 items-center gap-1 text-left text-sm font-medium leading-tight text-stone-700 hover:text-indigo-600"
+                      className={`flex w-32 shrink-0 items-center gap-1 text-left text-sm font-medium leading-tight hover:text-indigo-600 ${
+                        cityActive(c.city) ? "text-stone-700" : "text-stone-400"
+                      }`}
                     >
                       {c.hot && <span aria-hidden>🔥</span>}
                       <span>{c.city}</span>

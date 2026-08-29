@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { startOfMonth } from "date-fns";
-import { CITIES, SEASON } from "@/config/game";
+import { ACTIVE_CITY_NAMES, SEASON } from "@/config/game";
 import CityCalendar from "@/components/CityCalendar";
 import DateAgenda from "@/components/DateAgenda";
 
@@ -19,7 +19,7 @@ export function initialSeasonMonth(): Date {
 /** Переключатель видов календаря: «По городам» и «По датам». */
 export default function CalendarTabs({ refreshKey }: { refreshKey: number }) {
   const [tab, setTab] = useState<Tab>("cities");
-  const [city, setCity] = useState<string>(CITIES[0]);
+  const [city, setCity] = useState<string>(ACTIVE_CITY_NAMES[0]);
   const [month, setMonth] = useState<Date>(initialSeasonMonth());
 
   // Клик по городу в ленте: открыть «По городам» на этом городе И месяце даты.

@@ -203,6 +203,10 @@ export function createPlan(input: {
     .get(Number(info.lastInsertRowid)) as Plan;
 }
 
+export function getPlanById(id: number): Plan | undefined {
+  return db.prepare("SELECT * FROM plans WHERE id = ?").get(id) as Plan | undefined;
+}
+
 export function getPlansByTeam(teamId: number): Plan[] {
   return db
     .prepare(
