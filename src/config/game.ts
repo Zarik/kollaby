@@ -31,7 +31,7 @@ export const CITIES = [
   { name: "Москва: «Депо. Три вокзала»", active: true },
   { name: "Мстинский мост", active: false },
   { name: "Оксочи", active: false },
-  { name: "Санкт-Петербург: место в разработке", active: true },
+  { name: "Санкт-Петербург: «Вокзал 1853»", active: true },
   { name: "Травково", active: false },
 ] as const satisfies readonly CityInfo[];
 
